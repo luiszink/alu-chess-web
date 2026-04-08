@@ -4,7 +4,6 @@ import { Chess } from 'chess.js';
 import type { Square } from 'chess.js';
 import type { LegalMoveTarget } from '../../types/chess';
 import PromotionDialog from './PromotionDialog';
-
 function getLocalLegalMoves(fen: string, square: string): LegalMoveTarget[] {
   try {
     const chess = new Chess(fen);
@@ -127,21 +126,22 @@ export default function ChessBoard({ fen, currentPlayer, isTerminal, isAtLatest,
   }
 
   return (
-    <div className="relative">
+    <div className="relative" style={{ width: '560px' }}>
       <Chessboard
-        id="main-board"
-        position={fen}
-        onSquareClick={onSquareClick as (square: Square) => void}
-        onPieceDrop={onPieceDrop as (source: Square, target: Square) => boolean}
-        customSquareStyles={customSquareStyles}
-        customBoardStyle={{
-          borderRadius: '4px',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+        options={{
+          id: 'main-board',
+          position: fen,
+          onSquareClick: ({ square }) => onSquareClick(square),
+          onPieceDrop: ({ sourceSquare, targetSquare }) => onPieceDrop(sourceSquare, targetSquare),
+          squareStyles: customSquareStyles,
+          boardStyle: {
+            borderRadius: '4px',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+          },
+          darkSquareStyle: { backgroundColor: '#779952' },
+          lightSquareStyle: { backgroundColor: '#edeed1' },
+          animationDurationInMs: 200,
         }}
-        customDarkSquareStyle={{ backgroundColor: '#779952' }}
-        customLightSquareStyle={{ backgroundColor: '#edeed1' }}
-        boardWidth={560}
-        animationDuration={200}
       />
       {pendingPromotion && (
         <PromotionDialog
