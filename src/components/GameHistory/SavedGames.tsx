@@ -101,7 +101,7 @@ export default function SavedGames() {
             </div>
             <div style={{ color: 'var(--muted)', fontSize: '0.8rem', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <span>{game.moveCount} Züge</span>
-              <span>ID: {game.id.slice(0, 8)}…</span>
+              <span style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>ID: {game.id}</span>
             </div>
           </div>
 
