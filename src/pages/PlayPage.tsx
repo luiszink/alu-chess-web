@@ -75,7 +75,7 @@ function NavBtn({ onClick, disabled, title, children }: {
 
 // ── player bar (horizontal, spans board width) ──────────────────────────────
 
-const PLAYER_BAR_H = 44;
+const PLAYER_BAR_H = 56;
 
 function PlayerBar({ name, isActive, clockMs, isTerminal, captured, boardSize, position }: {
   name: string; isActive: boolean; clockMs?: number; isTerminal: boolean;
@@ -109,7 +109,7 @@ function PlayerBar({ name, isActive, clockMs, isTerminal, captured, boardSize, p
         )}
         {captured.length > 0 && (
           <span style={{
-            fontSize: '0.82rem', letterSpacing: '1px', color: 'var(--muted)',
+            fontSize: '1.1rem', letterSpacing: '2px', color: 'var(--muted)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>{captured.join('')}</span>
         )}
@@ -289,13 +289,16 @@ export default function PlayPage() {
     animatingRef.current = true;
     setIsAnimating(true);
     try {
+      const cur0 = useGameStore.getState().state;
+      const remaining = cur0 ? cur0.totalStates - cur0.browseIndex : 0;
+      const delay = remaining > 60 ? 80 : remaining > 30 ? 150 : remaining > 15 ? 220 : 300;
       // eslint-disable-next-line no-constant-condition
       while (true) {
         if (!animatingRef.current) break;
         const cur = useGameStore.getState().state;
         if (!cur || cur.isAtLatest) break;
         await browseForward();
-        await new Promise((r) => setTimeout(r, 280));
+        await new Promise((r) => setTimeout(r, delay));
       }
     } finally {
       animatingRef.current = false;

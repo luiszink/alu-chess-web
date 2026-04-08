@@ -83,7 +83,7 @@ export default function SavedGames() {
           key={game.id}
           style={{
             background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px',
-            padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '16px',
+            padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '20px',
             transition: 'background 0.12s',
           }}
           onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.background = 'var(--card-hover)'}
