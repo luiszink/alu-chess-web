@@ -1,73 +1,96 @@
-# React + TypeScript + Vite
+# ♗ alu-chess-web
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Web-Frontend für das **alu-chess** Schachprojekt — entwickelt im Rahmen des Moduls *Softwarearchitektur* (AIN, Semester 7).
 
-Currently, two official plugins are available:
+Das UI ist von [Lichess](https://lichess.org) inspiriert und kommuniziert über REST-APIs mit einem Java-Backend (Controller + Model).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Features
 
-## React Compiler
+- **Schachbrett** mit Drag-and-Drop & Klick-Steuerung (react-chessboard v5)
+- **Spieler-Leisten** über/unter dem Brett mit Uhr und geschlagenen Figuren
+- **Zugliste** mit Navigation (vor/zurück/Anfang/Ende) und Step-by-Step-Replay
+- **Schach/Schachmatt-Overlay** mit Pop-Animation
+- **Werkzeuge-Drawer**: FEN/PGN Import/Export, Testpositionen, JSON Import/Export
+- **Spielverlauf**: Gespeicherte Partien laden und als Replay ansehen
+- **Startseite** mit Zeitformat-Auswahl und Vorschau auf kommende Features
+- **Adaptive Replay-Geschwindigkeit** — passt sich der Zuganzahl an
+- **Dark Theme** mit Lichess-Farbschema
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech-Stack
 
-## Expanding the ESLint configuration
+| Technologie | Verwendung |
+|---|---|
+| [React 19](https://react.dev) + TypeScript | UI-Framework |
+| [Vite 8](https://vite.dev) | Build-Tool & Dev-Server |
+| [react-chessboard](https://www.npmjs.com/package/react-chessboard) v5 | Schachbrett-Darstellung |
+| [chess.js](https://github.com/jhlywa/chess.js) | Lokale Zugvalidierung & legale Züge |
+| [Zustand](https://zustand.docs.pmnd.rs/) | State-Management |
+| [React Router](https://reactrouter.com) v7 | Client-Side Routing |
+| [Tailwind CSS](https://tailwindcss.com) v4 | Utility-Styles |
+| [react-hot-toast](https://react-hot-toast.com) | Benachrichtigungen |
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Voraussetzungen
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **Node.js** ≥ 18
+- **Backend-Services** müssen laufen:
+  - Controller auf `http://localhost:8081`
+  - Model auf `http://localhost:8082`
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Installation & Start
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Die App startet unter `http://localhost:5173`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Projektstruktur
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+src/
+├── api/                    # REST-Clients (Controller, Model, SSE)
+├── components/
+│   ├── Board/              # ChessBoard, PromotionDialog
+│   ├── Controls/           # FenPgnTools, GameStatus, NewGameDialog
+│   ├── GameHistory/        # SavedGames
+│   ├── History/            # MoveList, NavigationBar
+│   └── Layout/             # NavBar, SidePanel
+├── pages/                  # HomePage, PlayPage, HistoryPage
+├── store/                  # Zustand Game-Store mit SSE-Sync
+└── types/                  # TypeScript-Typen (GameJson, ControllerState, …)
+```
+
+## API-Endpunkte
+
+### Controller (`localhost:8081`)
+
+| Methode | Endpoint | Beschreibung |
+|---|---|---|
+| GET | `/api/controller/state` | Spielzustand abrufen |
+| POST | `/api/controller/new-game` | Neues Spiel starten |
+| POST | `/api/controller/move` | Zug ausführen |
+| POST | `/api/controller/load-fen` | FEN-Position laden |
+| POST | `/api/controller/resign` | Aufgeben |
+| POST | `/api/controller/browse/*` | Zugnavigation (back/forward/to-start/to-end/to-move) |
+| GET | `/api/controller/move-history` | Zughistorie |
+| GET | `/api/controller/games` | Gespeicherte Spiele |
+| POST | `/api/controller/replay/load` | Replay laden |
+| SSE | `/api/controller/events` | Live-Updates |
+
+### Model (`localhost:8082`)
+
+| Methode | Endpoint | Beschreibung |
+|---|---|---|
+| POST | `/api/model/legal-moves` | Legale Züge für FEN |
+| POST | `/api/model/parse-pgn` | PGN parsen |
+| GET | `/api/model/test-positions` | Testpositionen |
+
+## Scripts
+
+| Befehl | Beschreibung |
+|---|---|
+| `npm run dev` | Dev-Server starten |
+| `npm run build` | Production-Build |
+| `npm run lint` | ESLint ausführen |
+| `npm run preview` | Build-Vorschau |
