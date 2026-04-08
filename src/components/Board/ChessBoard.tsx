@@ -23,10 +23,12 @@ interface ChessBoardProps {
   currentPlayer: 'White' | 'Black';
   isTerminal: boolean;
   isAtLatest: boolean;
+  boardSize: number;
+  lastMove?: { from: string; to: string };
   onMove: (from: string, to: string, promotion?: string) => void;
 }
 
-export default function ChessBoard({ fen, currentPlayer, isTerminal, isAtLatest, onMove }: ChessBoardProps) {
+export default function ChessBoard({ fen, currentPlayer, isTerminal, isAtLatest, boardSize, lastMove, onMove }: ChessBoardProps) {
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [legalMoves, setLegalMoves] = useState<LegalMoveTarget[]>([]);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
@@ -110,23 +112,30 @@ export default function ChessBoard({ fen, currentPlayer, isTerminal, isAtLatest,
   // Build highlight styles
   const customSquareStyles: Record<string, React.CSSProperties> = {};
 
+  // Last move highlight
+  if (lastMove) {
+    const lastMoveStyle = { backgroundColor: 'rgba(205, 210, 106, 0.48)' };
+    customSquareStyles[lastMove.from] = lastMoveStyle;
+    customSquareStyles[lastMove.to] = lastMoveStyle;
+  }
+
   if (selectedSquare) {
     customSquareStyles[selectedSquare] = {
-      backgroundColor: 'rgba(255, 255, 0, 0.4)',
+      backgroundColor: 'rgba(20, 85, 30, 0.55)',
     };
   }
 
   for (const move of legalMoves) {
     customSquareStyles[move.to] = {
+      ...(customSquareStyles[move.to] ?? {}),
       background: move.isCapture
-        ? 'radial-gradient(circle, rgba(0,0,0,.1) 85%, transparent 85%)'
-        : 'radial-gradient(circle, rgba(0,0,0,.2) 25%, transparent 25%)',
-      borderRadius: '50%',
+        ? 'radial-gradient(circle, rgba(0,0,0,.15) 82%, transparent 82%)'
+        : 'radial-gradient(circle, rgba(0,0,0,.18) 26%, transparent 26%)',
     };
   }
 
   return (
-    <div className="relative" style={{ width: '560px' }}>
+    <div className="relative" style={{ width: boardSize, height: boardSize }}>
       <Chessboard
         options={{
           id: 'main-board',
@@ -134,13 +143,10 @@ export default function ChessBoard({ fen, currentPlayer, isTerminal, isAtLatest,
           onSquareClick: ({ square }) => onSquareClick(square),
           onPieceDrop: ({ sourceSquare, targetSquare }) => onPieceDrop(sourceSquare, targetSquare),
           squareStyles: customSquareStyles,
-          boardStyle: {
-            borderRadius: '4px',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
-          },
-          darkSquareStyle: { backgroundColor: '#779952' },
-          lightSquareStyle: { backgroundColor: '#edeed1' },
-          animationDurationInMs: 200,
+          boardStyle: { width: '100%', borderRadius: '2px' },
+          darkSquareStyle: { backgroundColor: '#b58863' },
+          lightSquareStyle: { backgroundColor: '#f0d9b5' },
+          animationDurationInMs: 150,
         }}
       />
       {pendingPromotion && (
