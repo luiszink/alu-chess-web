@@ -26,51 +26,63 @@ export default function HomePage() {
   };
 
   return (
-    <div
-      style={{ background: 'var(--bg)', minHeight: 'calc(100vh - 52px)' }}
-      className="flex flex-col items-center justify-center py-10 px-4"
-    >
+    <div style={{
+      background: 'var(--bg)', minHeight: 'calc(100vh - 52px)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: '40px 16px', position: 'relative', overflow: 'hidden',
+    }}>
+      {/* Background bishop */}
+      <span style={{
+        position: 'absolute', top: '50%', left: '50%',
+        transform: 'translate(-50%, -50%)',
+        fontSize: 'clamp(20rem, 50vw, 50rem)',
+        color: 'var(--heading)', opacity: 0.035,
+        lineHeight: 1, pointerEvents: 'none', userSelect: 'none',
+      }}>♗</span>
+
       {/* Hero */}
-      <div className="flex flex-col items-center gap-2 mb-10">
-        <div className="flex items-center gap-3">
-          <span style={{ fontSize: '2.5rem', color: 'var(--heading)', lineHeight: 1 }}>♗</span>
-          <h1 style={{ color: 'var(--heading)', fontSize: '2.2rem', fontWeight: 700, margin: 0 }}>
-            alu-chess
-          </h1>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', marginBottom: '40px', position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <span style={{ fontSize: 'clamp(2.5rem, 5vw, 3.5rem)', color: 'var(--heading)', lineHeight: 1 }}>♗</span>
+          <h1 style={{
+            color: 'var(--heading)', fontSize: 'clamp(2rem, 4vw, 2.8rem)',
+            fontWeight: 700, margin: 0, letterSpacing: '-0.02em',
+          }}>alu-chess</h1>
         </div>
-        <p style={{ color: 'var(--muted)', fontSize: '0.95rem' }}>Wähle ein Zeitformat</p>
+        <p style={{ color: 'var(--muted)', fontSize: '1rem' }}>Wähle ein Zeitformat</p>
       </div>
 
       {/* Time format grid */}
-      <div
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', width: '100%', maxWidth: '520px' }}
-      >
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: '12px', width: '100%', maxWidth: 'clamp(360px, 80vw, 600px)',
+        position: 'relative', zIndex: 1,
+      }}>
         {TIME_FORMATS.map(({ label, category, color }) => (
           <button
             key={label}
             onClick={handleSelect}
             style={{
-              background: 'var(--card)',
-              border: '1px solid var(--border)',
-              borderRadius: '6px',
-              padding: '18px 8px',
-              cursor: 'pointer',
-              transition: 'background 0.15s, transform 0.1s',
+              background: 'var(--card)', border: '1px solid var(--border)',
+              borderRadius: '8px', padding: '22px 8px', cursor: 'pointer',
+              transition: 'background 0.15s, transform 0.12s, box-shadow 0.15s',
               textAlign: 'center',
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'var(--card-hover)';
-              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+              e.currentTarget.style.background = 'var(--card-hover)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.3)';
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'var(--card)';
-              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+              e.currentTarget.style.background = 'var(--card)';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'none';
             }}
           >
-            <div style={{ color: 'var(--heading)', fontSize: '1.3rem', fontWeight: 700, lineHeight: 1.2 }}>
+            <div style={{ color: 'var(--heading)', fontSize: 'clamp(1.1rem, 2.5vw, 1.5rem)', fontWeight: 700, lineHeight: 1.2 }}>
               {label}
             </div>
-            <div style={{ color, fontSize: '0.72rem', marginTop: '5px', fontWeight: 500 }}>
+            <div style={{ color, fontSize: '0.75rem', marginTop: '6px', fontWeight: 600 }}>
               {category}
             </div>
           </button>

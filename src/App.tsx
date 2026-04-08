@@ -18,7 +18,7 @@ function App() {
           <Route path="/tools"   element={<ToolsPage />} />
         </Routes>
         <Toaster
-          position="bottom-right"
+          position="top-center"
           toastOptions={{
             style: { background: 'var(--card)', color: 'var(--heading)', border: '1px solid var(--border)' },
           }}

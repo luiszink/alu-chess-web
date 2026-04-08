@@ -1,9 +1,46 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useGameStore } from '../store/gameStore';
 import { controllerApi } from '../api/controllerApi';
 import ChessBoard from '../components/Board/ChessBoard';
 import MoveList from '../components/History/MoveList';
-import ChessClock from '../components/Clock/ChessClock';
+
+// ── captured-piece computation from FEN ──────────────────────────────────────
+
+const STARTING: Record<string, number> = {
+  P: 8, N: 2, B: 2, R: 2, Q: 1, K: 1,
+  p: 8, n: 2, b: 2, r: 2, q: 1, k: 1,
+};
+
+const PIECE_SYMBOLS: Record<string, string> = {
+  P: '♙', N: '♘', B: '♗', R: '♖', Q: '♕',
+  p: '♟', n: '♞', b: '♝', r: '♜', q: '♛',
+};
+
+const PIECE_ORDER = ['Q', 'R', 'B', 'N', 'P'];
+
+function getCapturedPieces(fen: string): { white: string[]; black: string[] } {
+  const board = fen.split(' ')[0];
+  const counts: Record<string, number> = {};
+  for (const ch of board) {
+    if (/[a-zA-Z]/.test(ch) && ch !== '/' && STARTING[ch] !== undefined) {
+      counts[ch] = (counts[ch] || 0) + 1;
+    }
+  }
+  // white captured = black pieces missing, black captured = white pieces missing
+  const white: string[] = []; // pieces white has captured (lowercase = black pieces)
+  const black: string[] = []; // pieces black has captured (uppercase = white pieces)
+  for (const p of PIECE_ORDER) {
+    const lc = p.toLowerCase();
+    // black pieces missing → white captured them
+    const bMissing = STARTING[lc] - (counts[lc] || 0);
+    for (let i = 0; i < bMissing; i++) white.push(PIECE_SYMBOLS[lc]);
+    // white pieces missing → black captured them
+    const wMissing = STARTING[p] - (counts[p] || 0);
+    for (let i = 0; i < wMissing; i++) black.push(PIECE_SYMBOLS[p]);
+  }
+  return { white, black };
+}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -13,66 +50,120 @@ function parseLastMove(moveStr: string): { from: string; to: string } | undefine
   return { from: parts[0], to: parts[1].split('=')[0] };
 }
 
-function NavBtn({
-  onClick, disabled, title, children,
-}: {
+function formatMs(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function NavBtn({ onClick, disabled, title, children }: {
   onClick: () => void; disabled: boolean; title: string; children: React.ReactNode;
 }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
+    <button onClick={onClick} disabled={disabled} title={title}
       style={{
-        background: 'none',
-        border: 'none',
+        background: 'none', border: 'none',
         cursor: disabled ? 'default' : 'pointer',
         color: disabled ? 'var(--border)' : 'var(--muted)',
-        fontSize: '0.9rem',
-        padding: '4px 7px',
-        borderRadius: '3px',
-        transition: 'color 0.12s, background 0.12s',
-        lineHeight: 1,
+        fontSize: '0.9rem', padding: '4px 7px', borderRadius: '3px',
+        transition: 'color 0.12s', lineHeight: 1,
       }}
-      onMouseEnter={(e) => { if (!disabled) (e.currentTarget as HTMLButtonElement).style.color = 'var(--heading)'; }}
-      onMouseLeave={(e) => { if (!disabled) (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)'; }}
-    >
-      {children}
-    </button>
+      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.color = 'var(--heading)'; }}
+      onMouseLeave={(e) => { if (!disabled) e.currentTarget.style.color = 'var(--muted)'; }}
+    >{children}</button>
   );
 }
 
-function PlayerLabel({
-  name, isActive, clock, isTerminal,
-}: {
-  name: string; isActive: boolean; clock?: number; isTerminal: boolean;
+// ── player panel ─────────────────────────────────────────────────────────────
+
+function PlayerPanel({ name, isActive, clockMs, isTerminal, captured }: {
+  name: string; isActive: boolean; clockMs?: number; isTerminal: boolean; captured: string[];
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <span style={{ color: isActive ? 'var(--heading)' : 'var(--muted)', fontSize: '0.78rem', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-        {name}
-      </span>
-      {clock !== undefined && (
-        <span style={{
-          fontFamily: 'monospace',
-          fontSize: '0.95rem',
-          fontWeight: 700,
-          color: isActive && !isTerminal ? '#e8e6e3' : 'var(--muted)',
-          background: isActive && !isTerminal ? 'var(--card)' : 'transparent',
-          padding: '1px 7px',
-          borderRadius: '3px',
-          transition: 'background 0.2s',
+    <div style={{
+      padding: '8px 14px',
+      borderBottom: '1px solid var(--border)',
+      background: isActive && !isTerminal ? 'rgba(98,153,36,0.08)' : 'transparent',
+      transition: 'background 0.25s',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{
+            display: 'inline-block', width: '10px', height: '10px',
+            background: name === 'Weiß' ? '#f0d9b5' : '#2c1e0f',
+            border: '1.5px solid var(--border)', borderRadius: '2px',
+          }} />
+          <span style={{
+            color: isActive && !isTerminal ? 'var(--heading)' : 'var(--muted)',
+            fontSize: '0.82rem', fontWeight: 600, letterSpacing: '0.02em',
+            transition: 'color 0.2s',
+          }}>{name}</span>
+          {isActive && !isTerminal && (
+            <span style={{
+              width: '6px', height: '6px', borderRadius: '50%',
+              background: 'var(--green)', display: 'inline-block',
+            }} />
+          )}
+        </div>
+        {clockMs !== undefined && (
+          <span style={{
+            fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700,
+            color: isActive && !isTerminal ? '#e8e6e3' : 'var(--muted)',
+            background: isActive && !isTerminal ? 'var(--card)' : 'transparent',
+            padding: '1px 8px', borderRadius: '3px', transition: 'all 0.2s',
+          }}>{formatMs(clockMs)}</span>
+        )}
+      </div>
+      {captured.length > 0 && (
+        <div style={{
+          marginTop: '4px', fontSize: '0.85rem', letterSpacing: '1px',
+          color: 'var(--muted)', lineHeight: 1.2,
         }}>
-          {formatMs(clock)}
-        </span>
+          {captured.join('')}
+        </div>
       )}
     </div>
   );
 }
 
-function formatMs(ms: number): string {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+// ── check/checkmate overlay ──────────────────────────────────────────────────
+
+function CheckOverlay({ status, currentPlayer }: {
+  status: string; currentPlayer: 'White' | 'Black';
+}) {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    setVisible(true);
+    if (status === 'Check') {
+      const t = setTimeout(() => setVisible(false), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [status]);
+
+  if (!visible) return null;
+
+  const isCheckmate = status === 'Checkmate';
+  const label = isCheckmate ? 'Schachmatt!' : 'Schach!';
+  const icon = currentPlayer === 'White' ? '♔' : '♚';
+  const bg = isCheckmate ? 'rgba(180,30,30,0.92)' : 'rgba(200,140,20,0.88)';
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 40, pointerEvents: 'none',
+      animation: 'checkFadeIn 0.35s ease-out',
+    }}>
+      <div style={{
+        background: bg, padding: '14px 36px', borderRadius: '8px',
+        display: 'flex', alignItems: 'center', gap: '12px',
+        boxShadow: '0 6px 30px rgba(0,0,0,0.5)',
+        animation: 'checkPop 0.35s ease-out',
+      }}>
+        <span style={{ fontSize: '2rem' }}>{icon}</span>
+        <span style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 700, letterSpacing: '0.02em' }}>{label}</span>
+      </div>
+    </div>
+  );
 }
 
 // ── main component ────────────────────────────────────────────────────────────
@@ -93,8 +184,10 @@ export default function PlayPage() {
   const connectSSE   = useGameStore((s) => s.connectSSE);
   const setStoreState = useGameStore((s) => s.setState);
 
-  // Board size: fill viewport height minus navbar
   const [boardSize, setBoardSize] = useState(580);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const animatingRef = useRef(false);
+
   useEffect(() => {
     const update = () => setBoardSize(Math.min(window.innerHeight - 52 - 32, 680));
     update();
@@ -110,11 +203,31 @@ export default function PlayPage() {
   }, [fetchState, fetchMoveHistory, connectSSE]);
 
   const handleExitReplay = async () => {
-    try {
-      const s = await controllerApi.exitReplay();
-      setStoreState(s);
-    } catch { /* ignore */ }
+    try { const s = await controllerApi.exitReplay(); setStoreState(s); } catch { /* */ }
   };
+
+  // ── replay animation: step-by-step fast forward ──────────────────────────
+  const animateToEnd = useCallback(async () => {
+    if (isAnimating) {
+      animatingRef.current = false;
+      return;
+    }
+    animatingRef.current = true;
+    setIsAnimating(true);
+    try {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        if (!animatingRef.current) break;
+        const cur = useGameStore.getState().state;
+        if (!cur || cur.isAtLatest) break;
+        await browseForward();
+        await new Promise((r) => setTimeout(r, 280));
+      }
+    } finally {
+      animatingRef.current = false;
+      setIsAnimating(false);
+    }
+  }, [isAnimating, browseForward]);
 
   if (!state) {
     return (
@@ -127,76 +240,74 @@ export default function PlayPage() {
     );
   }
 
-  const { game, browseIndex, totalStates, isAtLatest, isInReplay, clock } = state;
+  const { game, browseIndex, isAtLatest, isInReplay, clock } = state;
   const currentPlayer = game.currentPlayer;
-
-  // Last move for board highlighting
   const lastMoveEntry = browseIndex > 0 ? moveHistory[browseIndex - 1] : undefined;
   const lastMove = lastMoveEntry ? parseLastMove(lastMoveEntry.move) : undefined;
-
-  // Status text
   const lastMoveLabel = lastMoveEntry ? lastMoveEntry.move : '–';
-
-  // Navigation
   const atStart = browseIndex === 0;
+  const captured = getCapturedPieces(game.fen);
+  const showCheck = game.status === 'Check' || game.status === 'Checkmate';
 
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 52px)', background: 'var(--bg)', overflow: 'hidden' }}>
 
-      {/* ── Board area ───────────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-        <ChessBoard
-          fen={game.fen}
-          currentPlayer={currentPlayer}
-          isTerminal={game.isTerminal}
-          isAtLatest={isAtLatest}
-          boardSize={boardSize}
-          lastMove={lastMove}
-          onMove={makeMove}
-        />
-      </div>
-
-      {/* ── Sidebar ──────────────────────────────────────────────────────────── */}
-      <div style={{
-        width: '260px',
-        flexShrink: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'var(--surface)',
-        borderLeft: '1px solid var(--border)',
-      }}>
-
-        {/* Black player + navigation */}
-        <div style={{ padding: '10px 12px 8px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: clock ? '6px' : 0 }}>
-            <PlayerLabel
-              name="Schwarz"
-              isActive={currentPlayer === 'Black' && !game.isTerminal}
-              clock={clock?.blackTimeMs}
-              isTerminal={game.isTerminal}
-            />
-            {/* Nav buttons sit here on the right-side when no clock */}
-            {!clock && (
-              <div style={{ display: 'flex', gap: '0' }}>
-                <NavBtn onClick={browseToStart} disabled={atStart} title="Zum Anfang">⏮</NavBtn>
-                <NavBtn onClick={browseBack}    disabled={atStart} title="Zurück">◀</NavBtn>
-                <NavBtn onClick={browseForward} disabled={isAtLatest} title="Vorwärts">▶</NavBtn>
-                <NavBtn onClick={browseToEnd}   disabled={isAtLatest} title="Zum Ende">⏭</NavBtn>
-              </div>
-            )}
-          </div>
-          {clock && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
-              <div />
-              <div style={{ display: 'flex', gap: '0' }}>
-                <NavBtn onClick={browseToStart} disabled={atStart} title="Zum Anfang">⏮</NavBtn>
-                <NavBtn onClick={browseBack}    disabled={atStart} title="Zurück">◀</NavBtn>
-                <NavBtn onClick={browseForward} disabled={isAtLatest} title="Vorwärts">▶</NavBtn>
-                <NavBtn onClick={browseToEnd}   disabled={isAtLatest} title="Zum Ende">⏭</NavBtn>
-              </div>
-            </div>
+      {/* ── Board area ─────────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', position: 'relative' }}>
+        <div style={{ position: 'relative', width: boardSize, height: boardSize }}>
+          <ChessBoard
+            fen={game.fen}
+            currentPlayer={currentPlayer}
+            isTerminal={game.isTerminal}
+            isAtLatest={isAtLatest}
+            boardSize={boardSize}
+            lastMove={lastMove}
+            onMove={makeMove}
+          />
+          {showCheck && (
+            <CheckOverlay status={game.status} currentPlayer={currentPlayer} />
           )}
         </div>
+      </div>
+
+      {/* ── Sidebar ────────────────────────────────────────────────────────── */}
+      <div style={{
+        width: '320px', flexShrink: 0, display: 'flex', flexDirection: 'column',
+        background: 'var(--surface)', borderLeft: '1px solid var(--border)',
+      }}>
+
+        {/* Black player panel */}
+        <PlayerPanel
+          name="Schwarz"
+          isActive={currentPlayer === 'Black' && !game.isTerminal}
+          clockMs={clock?.blackTimeMs}
+          isTerminal={game.isTerminal}
+          captured={captured.black}
+        />
+
+        {/* Navigation row */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '4px 12px', borderBottom: '1px solid var(--border)', gap: '2px',
+        }}>
+          <NavBtn onClick={browseToStart} disabled={atStart} title="Zum Anfang">⏮</NavBtn>
+          <NavBtn onClick={browseBack} disabled={atStart} title="Zurück">◀</NavBtn>
+          <NavBtn onClick={browseForward} disabled={isAtLatest || isAnimating} title="Vorwärts">▶</NavBtn>
+          <NavBtn onClick={animateToEnd} disabled={isAtLatest && !isAnimating} title={isAnimating ? 'Stopp' : 'Zum Ende'}>
+            {isAnimating ? '◼' : '⏭'}
+          </NavBtn>
+        </div>
+
+        {/* Not-at-latest hint (instead of move-error toasts) */}
+        {!isAtLatest && !isInReplay && (
+          <div style={{
+            padding: '6px 14px', background: 'rgba(98,153,36,0.10)',
+            borderBottom: '1px solid var(--border)',
+            fontSize: '0.75rem', color: 'var(--green)', textAlign: 'center',
+          }}>
+            ⬆ Zum aktuellen Zug springen um zu spielen
+          </div>
+        )}
 
         {/* Move list */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -207,118 +318,76 @@ export default function PlayPage() {
           />
         </div>
 
-        {/* White player */}
-        <div style={{ padding: '8px 12px 10px', borderTop: '1px solid var(--border)' }}>
-          <PlayerLabel
-            name="Weiß"
-            isActive={currentPlayer === 'White' && !game.isTerminal}
-            clock={clock?.whiteTimeMs}
-            isTerminal={game.isTerminal}
-          />
-        </div>
+        {/* White player panel */}
+        <PlayerPanel
+          name="Weiß"
+          isActive={currentPlayer === 'White' && !game.isTerminal}
+          clockMs={clock?.whiteTimeMs}
+          isTerminal={game.isTerminal}
+          captured={captured.white}
+        />
 
         {/* Status */}
         <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', background: 'var(--card)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '2px' }}>
-            <span style={{
-              display: 'inline-block',
-              width: '11px', height: '11px',
-              background: currentPlayer === 'White' ? '#f0d9b5' : '#2c1e0f',
-              border: '1.5px solid var(--border)',
-              borderRadius: '2px',
-              flexShrink: 0,
-            }} />
-            <span style={{ color: 'var(--heading)', fontWeight: 600, fontSize: '0.85rem' }}>
-              {currentPlayer === 'White' ? 'Weiß' : 'Schwarz'}
-            </span>
-            {isInReplay && (
-              <span style={{ fontSize: '0.72rem', color: 'var(--brown)', marginLeft: '4px' }}>Replay</span>
-            )}
+          <div style={{ color: 'var(--heading)', fontSize: '0.82rem', fontWeight: 600 }}>
+            {game.isTerminal ? state.statusText : (isAtLatest ? `${currentPlayer === 'White' ? 'Weiß' : 'Schwarz'} am Zug` : 'Verlauf')}
+            {isInReplay && <span style={{ fontSize: '0.72rem', color: 'var(--brown)', marginLeft: '6px' }}>Replay</span>}
           </div>
-          <div style={{ color: 'var(--heading)', fontSize: '0.82rem', fontWeight: 500 }}>
-            {game.isTerminal ? state.statusText : (isAtLatest ? 'am Zug' : 'Verlauf')}
-          </div>
-          <div style={{ color: 'var(--muted)', fontSize: '0.75rem', marginTop: '3px' }}>
+          <div style={{ color: 'var(--muted)', fontSize: '0.75rem', marginTop: '2px' }}>
             Letzter Zug: {lastMoveLabel}
           </div>
         </div>
 
         {/* Action buttons */}
         <div style={{
-          padding: '10px 12px',
-          borderTop: '1px solid var(--border)',
-          display: 'flex',
-          gap: '8px',
+          padding: '10px 12px', borderTop: '1px solid var(--border)',
+          display: 'flex', gap: '8px',
         }}>
-          <button
-            onClick={newGame}
+          <button onClick={newGame}
             style={{
-              flex: 1,
-              padding: '7px 0',
-              background: 'var(--green)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'filter 0.15s',
+              flex: 1, padding: '7px 0', background: 'var(--green)', color: '#fff',
+              border: 'none', borderRadius: '4px', fontSize: '0.82rem', fontWeight: 600,
+              cursor: 'pointer', transition: 'filter 0.15s',
             }}
-            onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.filter = 'brightness(1.15)'}
-            onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.filter = 'none'}
-          >
-            Neues Spiel
-          </button>
+            onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.15)'}
+            onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
+          >Neues Spiel</button>
 
           {isInReplay ? (
-            <button
-              onClick={handleExitReplay}
+            <button onClick={handleExitReplay}
               style={{
-                flex: 1,
-                padding: '7px 0',
-                background: 'var(--card)',
-                color: 'var(--text)',
-                border: '1px solid var(--border)',
-                borderRadius: '4px',
-                fontSize: '0.82rem',
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'background 0.15s',
+                flex: 1, padding: '7px 0', background: 'var(--card)', color: 'var(--text)',
+                border: '1px solid var(--border)', borderRadius: '4px', fontSize: '0.82rem',
+                fontWeight: 500, cursor: 'pointer', transition: 'background 0.15s',
               }}
-              onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.background = 'var(--card-hover)'}
-              onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.background = 'var(--card)'}
-            >
-              Verlassen
-            </button>
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--card-hover)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--card)'}
+            >Verlassen</button>
           ) : !game.isTerminal && (
-            <button
-              onClick={resign}
+            <button onClick={resign}
               style={{
-                flex: 1,
-                padding: '7px 0',
-                background: 'var(--card)',
-                color: 'var(--text)',
-                border: '1px solid var(--border)',
-                borderRadius: '4px',
-                fontSize: '0.82rem',
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'background 0.15s',
+                flex: 1, padding: '7px 0', background: 'var(--card)', color: 'var(--text)',
+                border: '1px solid var(--border)', borderRadius: '4px', fontSize: '0.82rem',
+                fontWeight: 500, cursor: 'pointer', transition: 'background 0.15s',
               }}
-              onMouseEnter={(e) => (e.currentTarget as HTMLButtonElement).style.background = 'var(--card-hover)'}
-              onMouseLeave={(e) => (e.currentTarget as HTMLButtonElement).style.background = 'var(--card)'}
-            >
-              Beenden
-            </button>
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--card-hover)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--card)'}
+            >Aufgeben</button>
           )}
         </div>
 
-        {/* Clock (if available) rendered via component for interpolation */}
-        {clock && (
-          <div style={{ display: 'none' }}>
-            <ChessClock clock={clock} currentPlayer={currentPlayer} isTerminal={game.isTerminal} />
-          </div>
-        )}
+        {/* Tools quick-link */}
+        <div style={{ padding: '6px 12px 10px', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+          <Link to="/tools" style={{
+            color: 'var(--muted)', fontSize: '0.75rem', textDecoration: 'none',
+            transition: 'color 0.15s',
+          }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--heading)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--muted)'}
+          >
+            ⚙ Werkzeuge (FEN/PGN)
+          </Link>
+        </div>
 
       </div>
     </div>

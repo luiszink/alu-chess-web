@@ -89,6 +89,15 @@ export default function ChessBoard({ fen, currentPlayer, isTerminal, isAtLatest,
     }
   }, [canInteract, selectedSquare, legalMoves, fen, tryMove, clearSelection]);
 
+  const onPieceDrag = useCallback((square: string) => {
+    if (!canInteract) return;
+    const moves = getLocalLegalMoves(fen, square);
+    if (moves.length > 0) {
+      setSelectedSquare(square);
+      setLegalMoves(moves);
+    }
+  }, [canInteract, fen]);
+
   const onPieceDrop = useCallback((sourceSquare: string, targetSquare: string): boolean => {
     if (!canInteract) return false;
     clearSelection();
@@ -141,6 +150,7 @@ export default function ChessBoard({ fen, currentPlayer, isTerminal, isAtLatest,
           id: 'main-board',
           position: fen,
           onSquareClick: ({ square }) => onSquareClick(square),
+          onPieceDrag: ({ square }) => onPieceDrag(square),
           onPieceDrop: ({ sourceSquare, targetSquare }) => onPieceDrop(sourceSquare, targetSquare),
           squareStyles: customSquareStyles,
           boardStyle: { width: '100%', borderRadius: '2px' },
