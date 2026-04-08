@@ -1,9 +1,23 @@
 import { useState, useCallback } from 'react';
 import { Chessboard } from 'react-chessboard';
+import { Chess } from 'chess.js';
 import type { Square } from 'chess.js';
-import { modelApi } from '../../api/modelApi';
 import type { LegalMoveTarget } from '../../types/chess';
 import PromotionDialog from './PromotionDialog';
+
+function getLocalLegalMoves(fen: string, square: string): LegalMoveTarget[] {
+  try {
+    const chess = new Chess(fen);
+    const moves = chess.moves({ square: square as Square, verbose: true });
+    return moves.map(m => ({
+      to: m.to,
+      isCapture: m.captured !== undefined,
+      promotion: m.promotion ?? null,
+    }));
+  } catch {
+    return [];
+  }
+}
 
 interface ChessBoardProps {
   fen: string;
@@ -25,78 +39,64 @@ export default function ChessBoard({ fen, currentPlayer, isTerminal, isAtLatest,
     setLegalMoves([]);
   }, []);
 
-  const isPromotionMove = (from: string, to: string): boolean => {
-    const fromRank = from[1];
-    const toRank = to[1];
-    // Check if a pawn is moving to the last rank
-    return (
-      (fromRank === '7' && toRank === '8') ||
-      (fromRank === '2' && toRank === '1')
-    );
-  };
+  const isPromotionMove = useCallback((from: string, to: string): boolean => {
+    try {
+      const chess = new Chess(fen);
+      const moves = chess.moves({ square: from as Square, verbose: true });
+      return moves.some(m => m.to === to && m.promotion !== undefined);
+    } catch {
+      return false;
+    }
+  }, [fen]);
 
   const tryMove = useCallback((from: string, to: string) => {
-    // Check if this is in legal moves for the selected square
-    const target = legalMoves.find(m => m.to === to);
-    if (!target && selectedSquare === from) return;
-
     if (isPromotionMove(from, to)) {
       setPendingPromotion({ from, to });
     } else {
       onMove(from, to);
       clearSelection();
     }
-  }, [legalMoves, selectedSquare, onMove, clearSelection]);
+  }, [isPromotionMove, onMove, clearSelection]);
 
-  const onSquareClick = useCallback(async (square: string) => {
+  const onSquareClick = useCallback((square: string) => {
     if (!canInteract) return;
 
     if (selectedSquare) {
-      // If clicking the same square, deselect
       if (selectedSquare === square) {
         clearSelection();
         return;
       }
-      // Try to move
       const target = legalMoves.find(m => m.to === square);
       if (target) {
         tryMove(selectedSquare, square);
       } else {
-        // Select a new piece
-        try {
-          const result = await modelApi.legalMovesForSquare(fen, square);
-          if (result.moves.length > 0) {
-            setSelectedSquare(square);
-            setLegalMoves(result.moves);
-          } else {
-            clearSelection();
-          }
-        } catch {
+        // Try selecting a different piece
+        const moves = getLocalLegalMoves(fen, square);
+        if (moves.length > 0) {
+          setSelectedSquare(square);
+          setLegalMoves(moves);
+        } else {
           clearSelection();
         }
       }
     } else {
-      // Select piece
-      try {
-        const result = await modelApi.legalMovesForSquare(fen, square);
-        if (result.moves.length > 0) {
-          setSelectedSquare(square);
-          setLegalMoves(result.moves);
-        }
-      } catch {
-        // ignore
+      const moves = getLocalLegalMoves(fen, square);
+      if (moves.length > 0) {
+        setSelectedSquare(square);
+        setLegalMoves(moves);
       }
     }
   }, [canInteract, selectedSquare, legalMoves, fen, tryMove, clearSelection]);
 
   const onPieceDrop = useCallback((sourceSquare: string, targetSquare: string): boolean => {
     if (!canInteract) return false;
+    clearSelection();
     if (isPromotionMove(sourceSquare, targetSquare)) {
+      // Show promotion dialog; board position is corrected by controlled FEN after choice
       setPendingPromotion({ from: sourceSquare, to: targetSquare });
-      return false; // Don't drop yet, wait for promotion choice
+      return true;
     }
     onMove(sourceSquare, targetSquare);
-    clearSelection();
     return true;
   }, [canInteract, onMove, clearSelection]);
 
