@@ -74,8 +74,8 @@ export default function FenPgnTools() {
   ];
 
   return (
-    <div className="bg-gray-800 rounded-lg overflow-hidden">
-      <div className="flex border-b border-gray-700">
+    <div style={{ background: 'var(--card)', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -85,31 +85,51 @@ export default function FenPgnTools() {
                 handleLoadTestPositions();
               }
             }}
-            className={`flex-1 px-2 py-1.5 text-xs font-medium transition-colors
-              ${activeTab === tab.key
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-400 hover:text-gray-200'}
-            `}
+            style={{
+              flex: 1, padding: '6px 8px', fontSize: '0.78rem', fontWeight: 500,
+              background: activeTab === tab.key ? 'var(--surface)' : 'transparent',
+              color: activeTab === tab.key ? 'var(--heading)' : 'var(--muted)',
+              border: 'none', cursor: 'pointer',
+              transition: 'color 0.15s, background 0.15s',
+            }}
+            onMouseEnter={(e) => { if (activeTab !== tab.key) e.currentTarget.style.color = 'var(--text)'; }}
+            onMouseLeave={(e) => { if (activeTab !== tab.key) e.currentTarget.style.color = 'var(--muted)'; }}
           >
             {tab.label}
           </button>
         ))}
       </div>
 
-      <div className="p-3">
+      <div style={{ padding: '12px' }}>
         {activeTab === 'fen' && (
-          <div className="flex flex-col gap-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <input
               type="text"
               value={fenInput}
               onChange={(e) => setFenInput(e.target.value)}
               placeholder="FEN-String eingeben..."
-              className="w-full px-3 py-1.5 bg-gray-900 border border-gray-600 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500"
+              style={{
+                width: '100%', padding: '6px 10px',
+                background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '4px',
+                color: 'var(--heading)', fontSize: '0.85rem',
+                outline: 'none',
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = 'var(--green)'}
+              onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
             />
             <button
               onClick={handleLoadFen}
               disabled={!fenInput.trim()}
-              className="w-full px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:bg-gray-600 disabled:text-gray-400 text-white rounded text-sm transition-colors"
+              style={{
+                width: '100%', padding: '6px 10px',
+                background: fenInput.trim() ? 'var(--green)' : 'var(--border)',
+                color: fenInput.trim() ? '#fff' : 'var(--muted)',
+                border: 'none', borderRadius: '4px', fontSize: '0.82rem', fontWeight: 600,
+                cursor: fenInput.trim() ? 'pointer' : 'default',
+                transition: 'filter 0.15s',
+              }}
+              onMouseEnter={(e) => { if (fenInput.trim()) e.currentTarget.style.filter = 'brightness(1.15)'; }}
+              onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
             >
               FEN laden
             </button>
@@ -117,18 +137,34 @@ export default function FenPgnTools() {
         )}
 
         {activeTab === 'pgn' && (
-          <div className="flex flex-col gap-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <textarea
               value={pgnInput}
               onChange={(e) => setPgnInput(e.target.value)}
               placeholder="PGN eingeben..."
               rows={3}
-              className="w-full px-3 py-1.5 bg-gray-900 border border-gray-600 rounded text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500 resize-none"
+              style={{
+                width: '100%', padding: '6px 10px',
+                background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '4px',
+                color: 'var(--heading)', fontSize: '0.85rem', resize: 'none',
+                outline: 'none',
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = 'var(--green)'}
+              onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
             />
             <button
               onClick={handleLoadPgn}
               disabled={!pgnInput.trim()}
-              className="w-full px-3 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:bg-gray-600 disabled:text-gray-400 text-white rounded text-sm transition-colors"
+              style={{
+                width: '100%', padding: '6px 10px',
+                background: pgnInput.trim() ? 'var(--green)' : 'var(--border)',
+                color: pgnInput.trim() ? '#fff' : 'var(--muted)',
+                border: 'none', borderRadius: '4px', fontSize: '0.82rem', fontWeight: 600,
+                cursor: pgnInput.trim() ? 'pointer' : 'default',
+                transition: 'filter 0.15s',
+              }}
+              onMouseEnter={(e) => { if (pgnInput.trim()) e.currentTarget.style.filter = 'brightness(1.15)'; }}
+              onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
             >
               PGN laden
             </button>
@@ -136,16 +172,30 @@ export default function FenPgnTools() {
         )}
 
         {activeTab === 'export' && (
-          <div className="flex flex-col gap-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <button
               onClick={handleExportJson}
-              className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm transition-colors"
+              style={{
+                width: '100%', padding: '6px 10px',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: '4px', color: 'var(--heading)', fontSize: '0.82rem', fontWeight: 500,
+                cursor: 'pointer', transition: 'background 0.15s',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--card-hover)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface)'}
             >
               JSON exportieren (Clipboard)
             </button>
             <button
               onClick={handleImportJson}
-              className="w-full px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm transition-colors"
+              style={{
+                width: '100%', padding: '6px 10px',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: '4px', color: 'var(--heading)', fontSize: '0.82rem', fontWeight: 500,
+                cursor: 'pointer', transition: 'background 0.15s',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--card-hover)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--surface)'}
             >
               JSON importieren (Clipboard)
             </button>
@@ -153,16 +203,23 @@ export default function FenPgnTools() {
         )}
 
         {activeTab === 'test' && (
-          <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '160px', overflowY: 'auto' }}>
             {testPositions.length === 0 && (
-              <p className="text-gray-500 text-sm text-center py-2">Lädt...</p>
+              <p style={{ color: 'var(--muted)', fontSize: '0.85rem', textAlign: 'center', padding: '8px 0' }}>Lädt...</p>
             )}
             {testPositions.map((pos) => (
               <button
                 key={pos.name}
                 onClick={() => handleLoadTestPosition(pos.fen)}
                 title={pos.description}
-                className="w-full px-2 py-1 text-left text-sm text-gray-200 hover:bg-gray-700 rounded transition-colors"
+                style={{
+                  width: '100%', padding: '4px 8px', textAlign: 'left',
+                  fontSize: '0.82rem', color: 'var(--text)', background: 'transparent',
+                  border: 'none', borderRadius: '4px', cursor: 'pointer',
+                  transition: 'background 0.12s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
                 {pos.name}
               </button>

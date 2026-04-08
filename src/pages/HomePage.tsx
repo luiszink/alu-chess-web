@@ -16,6 +16,13 @@ const TIME_FORMATS = [
   { label: 'Ohne Uhr', category: 'Freies Spiel', color: '#888' },
 ];
 
+const UPCOMING_FEATURES = [
+  { icon: '🔍', label: 'Analyse', desc: 'Partie-Analyse mit Engine' },
+  { icon: '🧩', label: 'Rätsel', desc: 'Taktik-Aufgaben lösen' },
+  { icon: '📖', label: 'Eröffnungen', desc: 'Eröffnungs-Explorer' },
+  { icon: '👥', label: 'Mehrspieler', desc: 'Gegen Freunde spielen' },
+];
+
 export default function HomePage() {
   const navigate = useNavigate();
   const newGame = useGameStore((s) => s.newGame);
@@ -86,6 +93,28 @@ export default function HomePage() {
               {category}
             </div>
           </button>
+        ))}
+      </div>
+
+      {/* Upcoming features */}
+      <div style={{
+        display: 'flex', gap: '12px', marginTop: '40px', flexWrap: 'wrap',
+        justifyContent: 'center', position: 'relative', zIndex: 1,
+      }}>
+        {UPCOMING_FEATURES.map(({ icon, label, desc }) => (
+          <div key={label} style={{
+            background: 'var(--card)', border: '1px solid var(--border)',
+            borderRadius: '8px', padding: '16px 20px', width: '160px',
+            opacity: 0.5, textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '1.5rem', marginBottom: '6px' }}>{icon}</div>
+            <div style={{ color: 'var(--heading)', fontSize: '0.85rem', fontWeight: 600 }}>{label}</div>
+            <div style={{ color: 'var(--muted)', fontSize: '0.72rem', marginTop: '4px' }}>{desc}</div>
+            <div style={{
+              fontSize: '0.65rem', color: 'var(--brown)', fontWeight: 600,
+              marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.05em',
+            }}>Bald verfügbar</div>
+          </div>
         ))}
       </div>
     </div>

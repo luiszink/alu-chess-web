@@ -4,7 +4,6 @@ const NAV_LINKS = [
   { to: '/',        label: 'Startseite' },
   { to: '/play',    label: 'Spiel'      },
   { to: '/history', label: 'Verlauf'    },
-  { to: '/tools',   label: 'Werkzeuge'  },
 ];
 
 export default function NavBar() {
