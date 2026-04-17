@@ -55,6 +55,18 @@ function formatMs(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+function formatEval(scoreCp: number, mate: number | null): string {
+  if (mate !== null) {
+    return mate > 0 ? `M${mate}` : `-M${Math.abs(mate)}`;
+  }
+  const value = scoreCp / 100;
+  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}`;
+}
+
+function formatCompactMove(from: string, to: string, promotion: string | null): string {
+  return promotion ? `${from}->${to}=${promotion}` : `${from}->${to}`;
+}
+
 function NavBtn({ onClick, disabled, title, children }: {
   onClick: () => void; disabled: boolean; title: string; children: React.ReactNode;
 }) {
@@ -252,6 +264,7 @@ export default function PlayPage() {
   const fetchMoveHistory = useGameStore((s) => s.fetchMoveHistory);
   const connectSSE   = useGameStore((s) => s.connectSSE);
   const setStoreState = useGameStore((s) => s.setState);
+  const engine = useGameStore((s) => s.engine);
 
   const [boardSize, setBoardSize] = useState(560);
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -420,6 +433,34 @@ export default function PlayPage() {
           <div style={{ color: 'var(--muted)', fontSize: '0.72rem', marginTop: 2 }}>
             Letzter Zug: {lastMoveLabel}
           </div>
+          {(engine.evaluation || engine.bestMove || engine.loadingBestMove || engine.loadingEvaluation) && (
+            <div style={{
+              marginTop: 6,
+              paddingTop: 6,
+              borderTop: '1px solid var(--border)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+            }}>
+              <div style={{ color: 'var(--heading)', fontSize: '0.72rem', fontWeight: 600 }}>
+                Analyse {engine.isStale ? '(veraltet)' : ''}
+              </div>
+              <div style={{ color: 'var(--muted)', fontSize: '0.7rem' }}>
+                {engine.loadingBestMove || engine.loadingEvaluation
+                  ? 'Berechne Engine...'
+                  : engine.evaluation
+                    ? `Eval: ${formatEval(engine.evaluation.scoreCp, engine.evaluation.mate)}`
+                    : 'Keine Eval vorhanden'}
+              </div>
+              <div style={{ color: 'var(--muted)', fontSize: '0.7rem' }}>
+                {engine.bestMove
+                  ? `Best: ${formatCompactMove(engine.bestMove.move.from, engine.bestMove.move.to, engine.bestMove.move.promotion)}`
+                  : engine.evaluation
+                    ? `PV: ${formatCompactMove(engine.evaluation.bestMove.from, engine.evaluation.bestMove.to, engine.evaluation.bestMove.promotion)}`
+                    : 'Best Move: -'}
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{
