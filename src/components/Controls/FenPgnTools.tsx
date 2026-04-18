@@ -25,10 +25,10 @@ function normalizeNumber(value: string, fallback: number): number {
   return parsed;
 }
 
-export default function FenPgnTools() {
+export default function FenPgnTools({ initialTab = 'fen' }: { initialTab?: 'fen' | 'pgn' | 'analysis' | 'export' | 'test' }) {
   const [fenInput, setFenInput] = useState('');
   const [pgnInput, setPgnInput] = useState('');
-  const [activeTab, setActiveTab] = useState<'fen' | 'pgn' | 'analysis' | 'export' | 'test'>('fen');
+  const [activeTab, setActiveTab] = useState<'fen' | 'pgn' | 'analysis' | 'export' | 'test'>(initialTab);
   const [testPositions, setTestPositions] = useState<TestPosition[]>([]);
   const state = useGameStore((s) => s.state);
   const engine = useGameStore((s) => s.engine);

@@ -17,7 +17,6 @@ const TIME_FORMATS = [
 ];
 
 const UPCOMING_FEATURES = [
-  { icon: '🔍', label: 'Analyse', desc: 'Partie-Analyse mit Engine' },
   { icon: '🧩', label: 'Rätsel', desc: 'Taktik-Aufgaben lösen' },
   { icon: '📖', label: 'Eröffnungen', desc: 'Eröffnungs-Explorer' },
   { icon: '👥', label: 'Mehrspieler', desc: 'Gegen Freunde spielen' },
@@ -96,11 +95,36 @@ export default function HomePage() {
         ))}
       </div>
 
-      {/* Upcoming features */}
+      {/* Features */}
       <div style={{
         display: 'flex', gap: '12px', marginTop: '40px', flexWrap: 'wrap',
         justifyContent: 'center', position: 'relative', zIndex: 1,
       }}>
+        {/* Analyse — verfügbar */}
+        <button
+          onClick={() => navigate('/analyse')}
+          style={{
+            background: 'var(--card)', border: '1px solid var(--border)',
+            borderRadius: '8px', padding: '16px 20px', width: '160px',
+            textAlign: 'center', cursor: 'pointer',
+            transition: 'background 0.15s, transform 0.12s, box-shadow 0.15s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--card-hover)';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.3)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'var(--card)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        >
+          <div style={{ fontSize: '1.5rem', marginBottom: '6px' }}>🔍</div>
+          <div style={{ color: 'var(--heading)', fontSize: '0.85rem', fontWeight: 600 }}>Analyse</div>
+          <div style={{ color: 'var(--muted)', fontSize: '0.72rem', marginTop: '4px' }}>Partie-Analyse mit Engine</div>
+        </button>
+
         {UPCOMING_FEATURES.map(({ icon, label, desc }) => (
           <div key={label} style={{
             background: 'var(--card)', border: '1px solid var(--border)',
