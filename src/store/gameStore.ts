@@ -33,9 +33,11 @@ interface GameStore {
   loading: boolean;
   connected: boolean;
   engine: EngineState;
+  activeGameId: string | null;
 
   // Actions
   setState: (state: ControllerState) => void;
+  setActiveGameId: (gameId: string | null) => void;
   fetchState: () => Promise<void>;
   fetchMoveHistory: () => Promise<void>;
   newGame: () => Promise<void>;
@@ -99,6 +101,7 @@ function handleError(err: unknown) {
 
 async function updateAfterAction(
   set: (partial: Partial<GameStore> | ((state: GameStore) => Partial<GameStore>)) => void,
+  get: () => GameStore,
   action: () => Promise<ControllerState>,
 ) {
   set({ loading: true });
@@ -112,8 +115,10 @@ async function updateAfterAction(
         isStale: isAnalysisStale(store.engine.lastAnalysedFen, s.game.fen),
       },
     }));
-    // Also refresh move history
-    const hist = await controllerApi.getMoveHistory();
+    const gameId = get().activeGameId;
+    const hist = gameId
+      ? await controllerApi.game(gameId).getMoveHistory()
+      : await controllerApi.getMoveHistory();
     set({ moveHistory: hist.moves });
   } catch (err) {
     set({ loading: false });
@@ -127,6 +132,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   loading: false,
   connected: false,
   engine: DEFAULT_ENGINE_STATE,
+  activeGameId: null,
+
+  setActiveGameId: (gameId) => set({ activeGameId: gameId }),
 
   setState: (state) => set((store) => ({
     state,
@@ -138,7 +146,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   fetchState: async () => {
     try {
-      const s = await controllerApi.getState();
+      const gameId = get().activeGameId;
+      const s = gameId
+        ? await controllerApi.game(gameId).getState()
+        : await controllerApi.getState();
       set((store) => ({
         state: s,
         engine: {
@@ -153,23 +164,69 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   fetchMoveHistory: async () => {
     try {
-      const hist = await controllerApi.getMoveHistory();
+      const gameId = get().activeGameId;
+      const hist = gameId
+        ? await controllerApi.game(gameId).getMoveHistory()
+        : await controllerApi.getMoveHistory();
       set({ moveHistory: hist.moves });
     } catch {
       // ignore
     }
   },
 
-  newGame: () => updateAfterAction(set, () => controllerApi.newGame()),
-  makeMove: (from, to, promotion) =>
-    updateAfterAction(set, () => controllerApi.makeMove(from, to, promotion)),
-  loadFen: (fen) => updateAfterAction(set, () => controllerApi.loadFen(fen)),
-  resign: () => updateAfterAction(set, () => controllerApi.resign()),
-  browseBack: () => updateAfterAction(set, () => controllerApi.browseBack()),
-  browseForward: () => updateAfterAction(set, () => controllerApi.browseForward()),
-  browseToStart: () => updateAfterAction(set, () => controllerApi.browseToStart()),
-  browseToEnd: () => updateAfterAction(set, () => controllerApi.browseToEnd()),
-  browseToMove: (index) => updateAfterAction(set, () => controllerApi.browseToMove(index)),
+  newGame: () => {
+    const gameId = get().activeGameId;
+    return updateAfterAction(set, get,
+      () => gameId ? controllerApi.game(gameId).newGame() : controllerApi.newGame(),
+    );
+  },
+  makeMove: (from, to, promotion) => {
+    const gameId = get().activeGameId;
+    return updateAfterAction(set, get,
+      () => gameId
+        ? controllerApi.game(gameId).makeMove(from, to, promotion)
+        : controllerApi.makeMove(from, to, promotion),
+    );
+  },
+  loadFen: (fen) => updateAfterAction(set, get, () => controllerApi.loadFen(fen)),
+  resign: () => {
+    const gameId = get().activeGameId;
+    return updateAfterAction(set, get,
+      () => gameId ? controllerApi.game(gameId).resign() : controllerApi.resign(),
+    );
+  },
+  browseBack: () => {
+    const gameId = get().activeGameId;
+    return updateAfterAction(set, get,
+      () => gameId ? controllerApi.game(gameId).browseBack() : controllerApi.browseBack(),
+    );
+  },
+  browseForward: () => {
+    const gameId = get().activeGameId;
+    return updateAfterAction(set, get,
+      () => gameId ? controllerApi.game(gameId).browseForward() : controllerApi.browseForward(),
+    );
+  },
+  browseToStart: () => {
+    const gameId = get().activeGameId;
+    return updateAfterAction(set, get,
+      () => gameId ? controllerApi.game(gameId).browseToStart() : controllerApi.browseToStart(),
+    );
+  },
+  browseToEnd: () => {
+    const gameId = get().activeGameId;
+    return updateAfterAction(set, get,
+      () => gameId ? controllerApi.game(gameId).browseToEnd() : controllerApi.browseToEnd(),
+    );
+  },
+  browseToMove: (index) => {
+    const gameId = get().activeGameId;
+    return updateAfterAction(set, get,
+      () => gameId
+        ? controllerApi.game(gameId).browseToMove(index)
+        : controllerApi.browseToMove(index),
+    );
+  },
 
   refreshEngineHealth: async () => {
     set((store) => ({
@@ -326,6 +383,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   connectSSE: () => {
+    const gameId = get().activeGameId;
+    const eventsUrl = gameId
+      ? controllerApi.game(gameId).eventsUrl()
+      : undefined;
+
     const disconnect = connectToGameEvents(async (state) => {
       set((store) => ({
         state,
@@ -336,12 +398,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
         },
       }));
       try {
-        const hist = await controllerApi.getMoveHistory();
+        const gid = get().activeGameId;
+        const hist = gid
+          ? await controllerApi.game(gid).getMoveHistory()
+          : await controllerApi.getMoveHistory();
         set({ moveHistory: hist.moves });
       } catch {
         // ignore
       }
-    });
+    }, eventsUrl);
     set({ connected: true });
     return disconnect;
   },

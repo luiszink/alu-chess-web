@@ -1,6 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../store/gameStore';
+import { usePlayerStore } from '../store/playerStore';
 import { controllerApi } from '../api/controllerApi';
+import type { GameStatusType, Color } from '../types/chess';
 import ChessBoard from '../components/Board/ChessBoard';
 import MoveList from '../components/History/MoveList';
 import FenPgnTools from '../components/Controls/FenPgnTools';
@@ -248,6 +251,98 @@ function ActionBtn({ onClick, children, variant = 'default' }: {
   );
 }
 
+// ── end-game dialog ──────────────────────────────────────────────────────────
+
+function getEndMessage(
+  status: GameStatusType,
+  currentPlayer: Color,
+  playerColor: Color | null,
+  localResigned: boolean,
+): { headline: string; icon: string } {
+  if (status === 'Stalemate') return { headline: 'Patt!', icon: '🤝' };
+  if (status === 'Draw')      return { headline: 'Remis!', icon: '🤝' };
+
+  if (status === 'Resigned') {
+    if (localResigned) return { headline: 'Aufgegeben', icon: '🏳️' };
+    return { headline: 'Du hast gewonnen!', icon: '🏆' };
+  }
+
+  // Checkmate or TimeOut: currentPlayer is the loser
+  const winner: Color = currentPlayer === 'White' ? 'Black' : 'White';
+  if (playerColor === null) {
+    const who = winner === 'White' ? 'Weiß' : 'Schwarz';
+    return { headline: `${who} gewinnt!`, icon: '🏆' };
+  }
+  if (playerColor === winner) return { headline: 'Du hast gewonnen!', icon: '🏆' };
+  return { headline: 'Du hast verloren.', icon: '😔' };
+}
+
+function EndDialog({
+  status, currentPlayer, playerColor, localResigned, statusText,
+  onPlayAgain, onLeave,
+}: {
+  status: GameStatusType;
+  currentPlayer: Color;
+  playerColor: Color | null;
+  localResigned: boolean;
+  statusText: string;
+  onPlayAgain: () => void;
+  onLeave: () => void;
+}) {
+  const { headline, icon } = getEndMessage(status, currentPlayer, playerColor, localResigned);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 60, animation: 'checkFadeIn 0.25s ease-out',
+    }}>
+      <div style={{
+        background: 'var(--bg)', border: '1px solid var(--border)',
+        borderRadius: '14px', padding: '32px 36px', textAlign: 'center',
+        minWidth: '280px', maxWidth: '340px',
+        boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+        animation: 'checkPop 0.3s ease-out',
+      }}>
+        <div style={{ fontSize: '3rem', marginBottom: '10px' }}>{icon}</div>
+        <h2 style={{
+          color: 'var(--heading)', margin: '0 0 6px', fontWeight: 700,
+          fontSize: '1.4rem', letterSpacing: '-0.01em',
+        }}>{headline}</h2>
+        <p style={{ color: 'var(--muted)', margin: '0 0 24px', fontSize: '0.88rem' }}>
+          {statusText}
+        </p>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={onPlayAgain}
+            style={{
+              flex: 1, padding: '11px 0',
+              background: 'var(--green)', border: 'none',
+              borderRadius: '8px', color: '#fff',
+              fontWeight: 700, fontSize: '0.92rem', cursor: 'pointer',
+              transition: 'filter 0.15s',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.filter = 'brightness(1.15)'}
+            onMouseLeave={(e) => e.currentTarget.style.filter = 'none'}
+          >Nochmals spielen</button>
+          <button
+            onClick={onLeave}
+            style={{
+              flex: 1, padding: '11px 0',
+              background: 'var(--card)', border: '1px solid var(--border)',
+              borderRadius: '8px', color: 'var(--text)',
+              fontWeight: 600, fontSize: '0.92rem', cursor: 'pointer',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--card-hover)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--card)'}
+          >Austreten</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── main component ────────────────────────────────────────────────────────────
 
 export default function PlayPage() {
@@ -266,10 +361,45 @@ export default function PlayPage() {
   const setStoreState = useGameStore((s) => s.setState);
   const engine = useGameStore((s) => s.engine);
 
-  const [boardSize, setBoardSize] = useState(560);
-  const [toolsOpen, setToolsOpen] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const animatingRef = useRef(false);
+  const playerName  = usePlayerStore((s) => s.playerName);
+  const playerColor = usePlayerStore((s) => s.color);
+  const resetPlayer = usePlayerStore((s) => s.reset);
+
+  const navigate = useNavigate();
+
+  const [boardSize, setBoardSize]       = useState(560);
+  const [toolsOpen, setToolsOpen]       = useState(false);
+  const [isAnimating, setIsAnimating]   = useState(false);
+  const [showEndDialog, setShowEndDialog] = useState(false);
+  const animatingRef      = useRef(false);
+  const localResignedRef  = useRef(false);
+  const prevTerminalRef   = useRef(false);
+
+  // Show dialog the moment the game becomes terminal
+  useEffect(() => {
+    if (!state) return;
+    if (state.game.isTerminal && !prevTerminalRef.current) {
+      setShowEndDialog(true);
+    }
+    prevTerminalRef.current = state.game.isTerminal;
+  }, [state?.game.isTerminal]);
+
+  const handleResign = async () => {
+    localResignedRef.current = true;
+    await resign();
+  };
+
+  const handlePlayAgain = async () => {
+    localResignedRef.current = false;
+    prevTerminalRef.current = false;
+    setShowEndDialog(false);
+    await newGame();
+  };
+
+  const handleLeave = () => {
+    resetPlayer();
+    navigate('/');
+  };
 
   useEffect(() => {
     const update = () => {
@@ -349,7 +479,7 @@ export default function PlayPage() {
       {/* ── Board column ──────────────────────────────────────────────── */}
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         <PlayerBar
-          name="Schwarz"
+          name={playerName && playerColor === 'White' ? 'Schwarz' : (playerName ?? 'Schwarz')}
           isActive={currentPlayer === 'Black' && !game.isTerminal}
           clockMs={clock?.blackTimeMs}
           isTerminal={game.isTerminal}
@@ -370,7 +500,7 @@ export default function PlayPage() {
           {showCheck && <CheckOverlay status={game.status} currentPlayer={currentPlayer} />}
         </div>
         <PlayerBar
-          name="Weiß"
+          name={playerName && playerColor === 'White' ? playerName : 'Weiß'}
           isActive={currentPlayer === 'White' && !game.isTerminal}
           clockMs={clock?.whiteTimeMs}
           isTerminal={game.isTerminal}
@@ -471,7 +601,7 @@ export default function PlayPage() {
           {isInReplay ? (
             <ActionBtn onClick={handleExitReplay}>Verlassen</ActionBtn>
           ) : !game.isTerminal && (
-            <ActionBtn onClick={resign}>Aufgeben</ActionBtn>
+            <ActionBtn onClick={handleResign}>Aufgeben</ActionBtn>
           )}
         </div>
 
@@ -490,6 +620,18 @@ export default function PlayPage() {
       </div>
 
       {toolsOpen && <ToolsDrawer onClose={() => setToolsOpen(false)} />}
+
+      {showEndDialog && game.isTerminal && (
+        <EndDialog
+          status={game.status}
+          currentPlayer={currentPlayer}
+          playerColor={playerColor}
+          localResigned={localResignedRef.current}
+          statusText={state.statusText}
+          onPlayAgain={handlePlayAgain}
+          onLeave={handleLeave}
+        />
+      )}
     </div>
   );
 }

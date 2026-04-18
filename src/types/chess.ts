@@ -107,3 +107,28 @@ export interface ErrorResponse {
   error: string;
   message: string;
 }
+
+// ── PlayerService types ───────────────────────────────────────
+
+export type GameMode = 'HumanVsHuman' | 'HumanVsAI';
+export type SessionStatus = 'Waiting' | 'Active' | 'Finished';
+
+export interface PlayerResponse {
+  id: string;
+  name: string;
+  gameId: string | null;
+  color: Color | null;
+}
+
+export interface GameSessionResponse {
+  id: string;
+  mode: GameMode;
+  whitePlayerId: string;
+  blackPlayerId: string | null;
+  status: SessionStatus;
+}
+
+export interface PlayerStatusResponse {
+  player: PlayerResponse;
+  session: GameSessionResponse | null;
+}
