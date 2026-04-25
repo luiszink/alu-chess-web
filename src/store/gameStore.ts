@@ -49,6 +49,7 @@ interface GameStore {
   browseToStart: () => Promise<void>;
   browseToEnd: () => Promise<void>;
   browseToMove: (index: number) => Promise<void>;
+  exitReplay: () => Promise<void>;
   refreshEngineHealth: () => Promise<void>;
   setEngineOptions: (options: Partial<EngineOptions>) => void;
   requestBestMove: (fen?: string) => Promise<void>;
@@ -227,6 +228,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         : controllerApi.browseToMove(index),
     );
   },
+  exitReplay: () => updateAfterAction(set, get, () => controllerApi.exitReplay()),
 
   refreshEngineHealth: async () => {
     set((store) => ({

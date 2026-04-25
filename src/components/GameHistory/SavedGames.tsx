@@ -22,9 +22,14 @@ function resultBadge(result: string) {
   );
 }
 
-export default function SavedGames() {
+interface SavedGamesProps {
+  onLoaded?: () => void;
+}
+
+export default function SavedGames({ onLoaded }: SavedGamesProps = {}) {
   const [games, setGames] = useState<GameRecordSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadedId, setLoadedId] = useState<string | null>(null);
   const navigate = useNavigate();
   const fetchMoveHistory = useGameStore((s) => s.fetchMoveHistory);
   const setStoreState = useGameStore((s) => s.setState);
@@ -50,7 +55,12 @@ export default function SavedGames() {
       const s = await controllerApi.loadReplay(id);
       setStoreState(s);
       await fetchMoveHistory();
-      navigate('/play');
+      setLoadedId(id);
+      if (onLoaded) {
+        onLoaded();
+      } else {
+        navigate('/play');
+      }
       toast.success('Replay gestartet');
     } catch {
       toast.error('Replay konnte nicht geladen werden');
@@ -82,12 +92,14 @@ export default function SavedGames() {
         <div
           key={game.id}
           style={{
-            background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px',
+            background: loadedId === game.id ? 'var(--green-dim)' : 'var(--card)',
+            border: `1px solid ${loadedId === game.id ? 'var(--green)' : 'var(--border)'}`,
+            borderRadius: '8px',
             padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '20px',
             transition: 'background 0.12s',
           }}
-          onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.background = 'var(--card-hover)'}
-          onMouseLeave={(e) => (e.currentTarget as HTMLDivElement).style.background = 'var(--card)'}
+          onMouseEnter={(e) => { if (loadedId !== game.id) (e.currentTarget as HTMLDivElement).style.background = 'var(--card-hover)'; }}
+          onMouseLeave={(e) => { if (loadedId !== game.id) (e.currentTarget as HTMLDivElement).style.background = 'var(--card)'; }}
         >
           {/* Result badge */}
           <div style={{ flexShrink: 0 }}>
