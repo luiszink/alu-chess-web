@@ -1,6 +1,6 @@
 FROM node:25-alpine AS builder
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json* ./
 RUN npm install
 COPY . .
 RUN npx vite build
