@@ -10,7 +10,7 @@ import type {
   EvaluateResponse,
 } from '../types/chess';
 
-const MODEL_URL = 'http://localhost:8082';
+const MODEL_URL = '';
 
 async function json<T>(r: Response): Promise<T> {
   if (!r.ok) {

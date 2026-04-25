@@ -1,6 +1,6 @@
 import type { ControllerState } from '../types/chess';
 
-const DEFAULT_EVENTS_URL = 'http://localhost:8081/api/controller/events';
+const DEFAULT_EVENTS_URL = '/api/controller/events';
 
 export function connectToGameEvents(
   onStateChange: (state: ControllerState) => void,

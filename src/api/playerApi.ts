@@ -4,7 +4,7 @@ import type {
   PlayerStatusResponse,
 } from '../types/chess';
 
-const CTRL_URL = 'http://localhost:8081';
+const CTRL_URL = '';
 
 async function json<T>(r: Response): Promise<T> {
   if (!r.ok) throw await r.json();
