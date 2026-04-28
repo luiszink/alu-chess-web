@@ -586,7 +586,7 @@ export default function PlayPage() {
                 {engine.bestMove
                   ? `Best: ${formatCompactMove(engine.bestMove.move.from, engine.bestMove.move.to, engine.bestMove.move.promotion)}`
                   : engine.evaluation
-                    ? `PV: ${formatCompactMove(engine.evaluation.bestMove.from, engine.evaluation.bestMove.to, engine.evaluation.bestMove.promotion)}`
+                    ? `PV (${currentPlayer === 'White' ? 'Weiß' : 'Schwarz'}): ${formatCompactMove(engine.evaluation.bestMove.from, engine.evaluation.bestMove.to, engine.evaluation.bestMove.promotion)}`
                     : 'Best Move: -'}
               </div>
             </div>
