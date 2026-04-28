@@ -69,7 +69,66 @@ export interface TestPosition {
   description: string;
 }
 
+export interface EngineOptions {
+  thinkTimeMs: number;
+  skillLevel: number;
+  threads: number;
+  hashMb: number;
+}
+
+export interface HealthResponse {
+  status: string;
+  service: string;
+}
+
+export interface BestMoveResponse {
+  move: MoveJson;
+  uci: string;
+  scoreCp: number;
+  mate: number | null;
+  depth: number;
+  nodes: number;
+  timeMs: number;
+  engine: string;
+}
+
+export interface EvaluateResponse {
+  scoreCp: number;
+  mate: number | null;
+  depth: number;
+  nodes: number;
+  timeMs: number;
+  bestMove: MoveJson;
+  bestMoveUci: string;
+  engine: string;
+}
+
 export interface ErrorResponse {
   error: string;
   message: string;
+}
+
+// ── PlayerService types ───────────────────────────────────────
+
+export type GameMode = 'HumanVsHuman' | 'HumanVsAI';
+export type SessionStatus = 'Waiting' | 'Active' | 'Finished';
+
+export interface PlayerResponse {
+  id: string;
+  name: string;
+  gameId: string | null;
+  color: Color | null;
+}
+
+export interface GameSessionResponse {
+  id: string;
+  mode: GameMode;
+  whitePlayerId: string;
+  blackPlayerId: string | null;
+  status: SessionStatus;
+}
+
+export interface PlayerStatusResponse {
+  player: PlayerResponse;
+  session: GameSessionResponse | null;
 }

@@ -1,6 +1,6 @@
 import type { ControllerState, ErrorResponse } from '../types/chess';
 
-const CTRL_URL = 'http://localhost:8081';
+const CTRL_URL = '';
 
 async function json<T>(r: Response): Promise<T> {
   if (!r.ok) {
@@ -54,4 +54,34 @@ export const controllerApi = {
       headers: { 'Content-Type': 'text/plain' },
       body: jsonStr,
     }).then(r => json<ControllerState>(r)),
+
+  // Per-game API — alle Operationen mit gameId im Pfad
+  game: (gameId: string) => ({
+    getState: () =>
+      get<ControllerState>(`/api/controller/game/${gameId}/state`),
+    makeMove: (from: string, to: string, promotion?: string) =>
+      post<ControllerState>(`/api/controller/game/${gameId}/move`, {
+        from, to, promotion: promotion ?? null,
+      }),
+    resign: () =>
+      post<ControllerState>(`/api/controller/game/${gameId}/resign`),
+    newGame: () =>
+      post<ControllerState>(`/api/controller/game/${gameId}/new-game`),
+    getMoveHistory: () =>
+      get<{ moves: import('../types/chess').MoveHistoryEntry[] }>(
+        `/api/controller/game/${gameId}/move-history`,
+      ),
+    browseBack: () =>
+      post<ControllerState>(`/api/controller/game/${gameId}/browse/back`),
+    browseForward: () =>
+      post<ControllerState>(`/api/controller/game/${gameId}/browse/forward`),
+    browseToStart: () =>
+      post<ControllerState>(`/api/controller/game/${gameId}/browse/to-start`),
+    browseToEnd: () =>
+      post<ControllerState>(`/api/controller/game/${gameId}/browse/to-end`),
+    browseToMove: (index: number) =>
+      post<ControllerState>(`/api/controller/game/${gameId}/browse/to-move`, { index }),
+    eventsUrl: () =>
+      `${CTRL_URL}/api/controller/game/${gameId}/events`,
+  }),
 };

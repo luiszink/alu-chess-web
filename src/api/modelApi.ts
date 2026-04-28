@@ -1,6 +1,16 @@
-import type { GameJson, LegalMovesForSquare, MoveJson, ErrorResponse, TestPosition } from '../types/chess';
+import type {
+  GameJson,
+  LegalMovesForSquare,
+  MoveJson,
+  ErrorResponse,
+  TestPosition,
+  EngineOptions,
+  HealthResponse,
+  BestMoveResponse,
+  EvaluateResponse,
+} from '../types/chess';
 
-const MODEL_URL = 'http://localhost:8082';
+const MODEL_URL = '';
 
 async function json<T>(r: Response): Promise<T> {
   if (!r.ok) {
@@ -19,6 +29,12 @@ function post<T>(path: string, body: object): Promise<T> {
 }
 
 export const modelApi = {
+  getStockfishHealth: () =>
+    fetch(`${MODEL_URL}/api/model/stockfish/health`).then(r => json<HealthResponse>(r)),
+  getBestMove: (fen: string, options: EngineOptions) =>
+    post<BestMoveResponse>('/api/model/stockfish/best-move', { fen, ...options }),
+  evaluatePosition: (fen: string, options: EngineOptions) =>
+    post<EvaluateResponse>('/api/model/stockfish/evaluate', { fen, ...options }),
   newGame: () =>
     fetch(`${MODEL_URL}/api/model/new-game`).then(r => json<GameJson>(r)),
   validateMove: (fen: string, from: string, to: string, promotion?: string) =>

@@ -3,14 +3,47 @@ import { controllerApi } from '../../api/controllerApi';
 import { modelApi } from '../../api/modelApi';
 import { useGameStore } from '../../store/gameStore';
 import toast from 'react-hot-toast';
-import type { TestPosition } from '../../types/chess';
+import type { EngineOptions, MoveJson, TestPosition } from '../../types/chess';
 
-export default function FenPgnTools() {
+function formatEval(scoreCp: number, mate: number | null): string {
+  if (mate !== null) {
+    if (mate > 0) return `Matt in ${mate}`;
+    return `Matt in ${Math.abs(mate)} (gegen dich)`;
+  }
+
+  const pawns = scoreCp / 100;
+  return `${pawns >= 0 ? '+' : ''}${pawns.toFixed(2)}`;
+}
+
+function formatMove(move: MoveJson): string {
+  return move.promotion ? `${move.from} -> ${move.to}=${move.promotion}` : `${move.from} -> ${move.to}`;
+}
+
+function normalizeNumber(value: string, fallback: number): number {
+  const parsed = Number(value);
+  if (Number.isNaN(parsed)) return fallback;
+  return parsed;
+}
+
+export default function FenPgnTools({ initialTab = 'fen' }: { initialTab?: 'fen' | 'pgn' | 'analysis' | 'export' | 'test' }) {
   const [fenInput, setFenInput] = useState('');
   const [pgnInput, setPgnInput] = useState('');
-  const [activeTab, setActiveTab] = useState<'fen' | 'pgn' | 'export' | 'test'>('fen');
+  const [activeTab, setActiveTab] = useState<'fen' | 'pgn' | 'analysis' | 'export' | 'test'>(initialTab);
   const [testPositions, setTestPositions] = useState<TestPosition[]>([]);
+  const state = useGameStore((s) => s.state);
+  const engine = useGameStore((s) => s.engine);
   const loadFen = useGameStore((s) => s.loadFen);
+  const refreshEngineHealth = useGameStore((s) => s.refreshEngineHealth);
+  const setEngineOptions = useGameStore((s) => s.setEngineOptions);
+  const requestBestMove = useGameStore((s) => s.requestBestMove);
+  const requestEvaluation = useGameStore((s) => s.requestEvaluation);
+  const clearEngineAnalysis = useGameStore((s) => s.clearEngineAnalysis);
+
+  const currentFen = state?.game.fen;
+
+  const updateEngineOption = (key: keyof EngineOptions, value: string) => {
+    setEngineOptions({ [key]: normalizeNumber(value, engine.options[key]) } as Pick<EngineOptions, typeof key>);
+  };
 
   const handleLoadFen = async () => {
     if (!fenInput.trim()) return;
@@ -69,6 +102,7 @@ export default function FenPgnTools() {
   const tabs = [
     { key: 'fen' as const, label: 'FEN' },
     { key: 'pgn' as const, label: 'PGN' },
+    { key: 'analysis' as const, label: 'Analyse' },
     { key: 'export' as const, label: 'Import/Export' },
     { key: 'test' as const, label: 'Test' },
   ];
@@ -83,6 +117,9 @@ export default function FenPgnTools() {
               setActiveTab(tab.key);
               if (tab.key === 'test' && testPositions.length === 0) {
                 handleLoadTestPositions();
+              }
+              if (tab.key === 'analysis' && !engine.health && !engine.healthLoading) {
+                void refreshEngineHealth();
               }
             }}
             style={{
@@ -168,6 +205,254 @@ export default function FenPgnTools() {
             >
               PGN laden
             </button>
+          </div>
+        )}
+
+        {activeTab === 'analysis' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              padding: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span style={{ color: 'var(--heading)', fontSize: '0.78rem', fontWeight: 600 }}>Engine-Status</span>
+                <span style={{
+                  color: engine.healthError
+                    ? '#cc6f6f'
+                    : engine.health?.status === 'ok'
+                      ? 'var(--green)'
+                      : 'var(--muted)',
+                  fontSize: '0.75rem',
+                }}>
+                  {engine.healthLoading
+                    ? 'Prüfe Verbindung...'
+                    : engine.healthError
+                      ? `Fehler: ${engine.healthError}`
+                      : engine.health
+                        ? `${engine.health.service}: ${engine.health.status}`
+                        : 'Noch nicht geprüft'}
+                </span>
+              </div>
+              <button
+                onClick={() => void refreshEngineHealth()}
+                disabled={engine.healthLoading}
+                style={{
+                  padding: '4px 8px',
+                  background: 'var(--card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '4px',
+                  color: 'var(--text)',
+                  fontSize: '0.74rem',
+                  cursor: engine.healthLoading ? 'default' : 'pointer',
+                }}
+              >
+                {engine.healthLoading ? '...' : 'Aktualisieren'}
+              </button>
+            </div>
+
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              padding: '8px',
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '8px',
+            }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <span style={{ color: 'var(--muted)', fontSize: '0.74rem' }}>Think ms</span>
+                <input
+                  type="number"
+                  min={100}
+                  max={10000}
+                  value={engine.options.thinkTimeMs}
+                  onChange={(e) => updateEngineOption('thinkTimeMs', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '5px 8px',
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '4px',
+                    color: 'var(--heading)',
+                    fontSize: '0.8rem',
+                  }}
+                />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <span style={{ color: 'var(--muted)', fontSize: '0.74rem' }}>Skill (1-20)</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={engine.options.skillLevel}
+                  onChange={(e) => updateEngineOption('skillLevel', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '5px 8px',
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '4px',
+                    color: 'var(--heading)',
+                    fontSize: '0.8rem',
+                  }}
+                />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <span style={{ color: 'var(--muted)', fontSize: '0.74rem' }}>Threads</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={16}
+                  value={engine.options.threads}
+                  onChange={(e) => updateEngineOption('threads', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '5px 8px',
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '4px',
+                    color: 'var(--heading)',
+                    fontSize: '0.8rem',
+                  }}
+                />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                <span style={{ color: 'var(--muted)', fontSize: '0.74rem' }}>Hash MB</span>
+                <input
+                  type="number"
+                  min={16}
+                  max={1024}
+                  value={engine.options.hashMb}
+                  onChange={(e) => updateEngineOption('hashMb', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '5px 8px',
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '4px',
+                    color: 'var(--heading)',
+                    fontSize: '0.8rem',
+                  }}
+                />
+              </label>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => void requestBestMove(currentFen)}
+                disabled={!currentFen || engine.loadingBestMove}
+                style={{
+                  flex: 1,
+                  padding: '7px 8px',
+                  background: !currentFen || engine.loadingBestMove ? 'var(--border)' : 'var(--green)',
+                  color: !currentFen || engine.loadingBestMove ? 'var(--muted)' : '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: !currentFen || engine.loadingBestMove ? 'default' : 'pointer',
+                }}
+              >
+                {engine.loadingBestMove ? 'Berechne...' : 'Best Move'}
+              </button>
+              <button
+                onClick={() => void requestEvaluation(currentFen)}
+                disabled={!currentFen || engine.loadingEvaluation}
+                style={{
+                  flex: 1,
+                  padding: '7px 8px',
+                  background: !currentFen || engine.loadingEvaluation ? 'var(--border)' : 'var(--green)',
+                  color: !currentFen || engine.loadingEvaluation ? 'var(--muted)' : '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: !currentFen || engine.loadingEvaluation ? 'default' : 'pointer',
+                }}
+              >
+                {engine.loadingEvaluation ? 'Berechne...' : 'Evaluate'}
+              </button>
+            </div>
+
+            <button
+              onClick={clearEngineAnalysis}
+              style={{
+                width: '100%',
+                padding: '6px 8px',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '4px',
+                color: 'var(--text)',
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+              }}
+            >
+              Analyse zurücksetzen
+            </button>
+
+            {engine.error && (
+              <div style={{
+                padding: '7px 8px',
+                borderRadius: '5px',
+                background: 'rgba(183, 79, 79, 0.15)',
+                color: '#cc6f6f',
+                fontSize: '0.75rem',
+                border: '1px solid rgba(183, 79, 79, 0.35)',
+              }}>
+                {engine.error}
+              </div>
+            )}
+
+            {(engine.bestMove || engine.evaluation) && (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                padding: '8px',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--heading)', fontSize: '0.78rem', fontWeight: 600 }}>Analyse-Ergebnis</span>
+                  {engine.isStale && (
+                    <span style={{ color: 'var(--brown)', fontSize: '0.7rem', fontWeight: 600 }}>veraltet</span>
+                  )}
+                </div>
+
+                {engine.bestMove && (
+                  <div style={{ color: 'var(--text)', fontSize: '0.76rem' }}>
+                    <strong>Best Move:</strong> {formatMove(engine.bestMove.move)}
+                    {' '}({engine.bestMove.uci})
+                  </div>
+                )}
+
+                {engine.evaluation && (
+                  <div style={{ color: 'var(--text)', fontSize: '0.76rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span><strong>Eval:</strong> {formatEval(engine.evaluation.scoreCp, engine.evaluation.mate)}</span>
+                    <span><strong>PV Move:</strong> {formatMove(engine.evaluation.bestMove)}</span>
+                    <span style={{ color: 'var(--muted)' }}>
+                      Tiefe {engine.evaluation.depth}, {engine.evaluation.nodes.toLocaleString('de-DE')} Knoten, {engine.evaluation.timeMs}ms
+                    </span>
+                  </div>
+                )}
+
+                {engine.lastAnalysedFen && (
+                  <div style={{ color: 'var(--muted)', fontSize: '0.7rem', wordBreak: 'break-all' }}>
+                    FEN: {engine.lastAnalysedFen}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
