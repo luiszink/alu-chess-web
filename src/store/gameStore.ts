@@ -61,8 +61,6 @@ interface GameStore {
 const DEFAULT_ENGINE_OPTIONS: EngineOptions = {
   thinkTimeMs: 1000,
   skillLevel: 12,
-  threads: 2,
-  hashMb: 128,
 };
 
 const DEFAULT_ENGINE_STATE: EngineState = {
@@ -268,8 +266,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const normalized: EngineOptions = {
         thinkTimeMs: clamp(Math.round(merged.thinkTimeMs), 100, 10000),
         skillLevel: clamp(Math.round(merged.skillLevel), 1, 20),
-        threads: clamp(Math.round(merged.threads), 1, 16),
-        hashMb: clamp(Math.round(merged.hashMb), 16, 1024),
       };
 
       return {

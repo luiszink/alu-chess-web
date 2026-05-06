@@ -72,8 +72,6 @@ export interface TestPosition {
 export interface EngineOptions {
   thinkTimeMs: number;
   skillLevel: number;
-  threads: number;
-  hashMb: number;
 }
 
 export interface HealthResponse {

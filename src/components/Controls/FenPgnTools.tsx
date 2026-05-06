@@ -305,45 +305,6 @@ export default function FenPgnTools({ initialTab = 'fen' }: { initialTab?: 'fen'
                 />
               </label>
 
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                <span style={{ color: 'var(--muted)', fontSize: '0.74rem' }}>Threads</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={16}
-                  value={engine.options.threads}
-                  onChange={(e) => updateEngineOption('threads', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '5px 8px',
-                    background: 'var(--bg)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '4px',
-                    color: 'var(--heading)',
-                    fontSize: '0.8rem',
-                  }}
-                />
-              </label>
-
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                <span style={{ color: 'var(--muted)', fontSize: '0.74rem' }}>Hash MB</span>
-                <input
-                  type="number"
-                  min={16}
-                  max={1024}
-                  value={engine.options.hashMb}
-                  onChange={(e) => updateEngineOption('hashMb', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '5px 8px',
-                    background: 'var(--bg)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '4px',
-                    color: 'var(--heading)',
-                    fontSize: '0.8rem',
-                  }}
-                />
-              </label>
             </div>
 
             <div style={{ display: 'flex', gap: '8px' }}>
