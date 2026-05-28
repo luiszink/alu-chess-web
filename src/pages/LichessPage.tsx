@@ -17,6 +17,16 @@ function describeChallenge(c: LichessChallenge): string {
   return `${who} → ${c.variant.key} ${tc} (${rated})`;
 }
 
+type BotPreset = { name: string; description: string };
+const BOT_PRESETS: BotPreset[] = [
+  { name: 'maia1',           description: 'Maia ~1100 (menschlich, Anfänger)' },
+  { name: 'maia5',           description: 'Maia ~1500 (menschlich, Klubspieler)' },
+  { name: 'maia9',           description: 'Maia ~1900 (menschlich, stark)' },
+  { name: 'Boris-Trapsky',   description: 'Eröffnungsexperte' },
+  { name: 'leelaknightodds', description: 'Lc0 mit Springer-Vorgabe' },
+  { name: 'stockfish',       description: 'Stockfish (offizielles Konto)' },
+];
+
 function describeEvent(ev: LichessEvent): string {
   switch (ev.type) {
     case 'connected':         return `verbunden als ${ev.username}`;
@@ -157,6 +167,22 @@ export default function LichessPage() {
                 <option value="black">schwarz</option>
               </select>
             </label>
+            <div style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {BOT_PRESETS.map((b) => (
+                <button
+                  key={b.name}
+                  type="button"
+                  onClick={() => { setOpponent(b.name); setRated(false); }}
+                  title={b.description}
+                  style={{
+                    ...btn,
+                    background: opponent === b.name ? 'var(--card-hover, #2a2a2a)' : 'transparent',
+                  }}
+                >
+                  {b.name}
+                </button>
+              ))}
+            </div>
             <label style={lbl}>
               Zeit (Minuten)
               <input
@@ -188,7 +214,7 @@ export default function LichessPage() {
             </button>
           </form>
           <div style={{ marginTop: 8, color: 'var(--muted)', fontSize: 12 }}>
-            Hinweis: Gegen Bot-Konten ist nur <em>casual</em> erlaubt. Beispiel-Bots: <code>maia1</code>, <code>maia5</code>, <code>maia9</code>.
+            Hinweis: Gegen Bot-Konten ist nur <em>casual</em> erlaubt. Wenn ein Bot nicht antwortet, ist er evtl. offline — probiere einen anderen aus der Liste.
           </div>
         </section>
       )}
