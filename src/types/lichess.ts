@@ -58,4 +58,7 @@ export type LichessEvent =
   | { type: 'gameFull'; gameId: string; state: LichessGameState }
   | { type: 'gameState'; gameId: string; state: LichessGameState }
   | { type: 'myMove'; gameId: string; uci: string }
+  | { type: 'challengeCreated'; target: string; challenge: unknown }
+  | { type: 'aborted'; id: string }
+  | { type: 'resigned'; id: string }
   | { type: 'error'; gameId?: string; stage?: string; message: string };

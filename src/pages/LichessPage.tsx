@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLichessStore } from '../store/lichessStore';
+import { lichessApi } from '../api/lichessApi';
 import type { LichessChallenge, LichessEvent } from '../types/lichess';
 
 function fmtTime(secs?: number): string {
@@ -29,6 +30,9 @@ function describeEvent(ev: LichessEvent): string {
     case 'gameFull':          return `gameFull ${ev.gameId} — ${ev.state.moves || '(start)'}`;
     case 'gameState':         return `gameState ${ev.gameId} — ${ev.state.moves}`;
     case 'myMove':            return `Bot-Zug ${ev.gameId}: ${ev.uci}`;
+    case 'challengeCreated':  return `Challenge erstellt → ${ev.target}`;
+    case 'aborted':           return `Spiel abgebrochen (${ev.id})`;
+    case 'resigned':          return `Aufgegeben (${ev.id})`;
     case 'error':             return `Fehler ${ev.stage ?? ''}: ${ev.message}`;
   }
 }
@@ -42,6 +46,14 @@ export default function LichessPage() {
   const disconnect  = useLichessStore((s) => s.disconnect);
   const clearEvents = useLichessStore((s) => s.clearEvents);
 
+  const [opponent, setOpponent]     = useState('');
+  const [limitMin, setLimitMin]     = useState(5);
+  const [increment, setIncrement]   = useState(3);
+  const [rated, setRated]           = useState(false);
+  const [color, setColor]           = useState<'random' | 'white' | 'black'>('random');
+  const [busy, setBusy]             = useState(false);
+  const [actionError, setActionErr] = useState<string | null>(null);
+
   useEffect(() => {
     refresh().catch(() => undefined);
     connect();
@@ -49,6 +61,40 @@ export default function LichessPage() {
   }, [refresh, connect, disconnect]);
 
   const configured = status?.configured === true;
+
+  async function handleChallenge(e: React.FormEvent) {
+    e.preventDefault();
+    setActionErr(null);
+    if (!opponent.trim()) return;
+    setBusy(true);
+    try {
+      await lichessApi.createChallenge({
+        username: opponent.trim(),
+        limitSeconds: Math.round(limitMin * 60),
+        incrementSeconds: increment,
+        rated,
+        color,
+      });
+      setOpponent('');
+      refresh().catch(() => undefined);
+    } catch (err) {
+      setActionErr(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleAbort(id: string) {
+    setActionErr(null);
+    try { await lichessApi.abortGame(id); refresh().catch(() => undefined); }
+    catch (err) { setActionErr(err instanceof Error ? err.message : String(err)); }
+  }
+
+  async function handleResign(id: string) {
+    setActionErr(null);
+    try { await lichessApi.resignGame(id); refresh().catch(() => undefined); }
+    catch (err) { setActionErr(err instanceof Error ? err.message : String(err)); }
+  }
 
   return (
     <main style={{ padding: '24px', maxWidth: 960, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -87,19 +133,92 @@ export default function LichessPage() {
 
       {status && configured && (
         <section style={card}>
+          <h2 style={h2}>Challenge versenden</h2>
+          {actionError && (
+            <div style={{ background: '#3b1f1f', color: '#ffb4b4', padding: 8, borderRadius: 6, marginBottom: 8 }}>
+              {actionError}
+            </div>
+          )}
+          <form onSubmit={handleChallenge} style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr', alignItems: 'end' }}>
+            <label style={lbl}>
+              Gegner (Lichess-Username)
+              <input
+                value={opponent}
+                onChange={(e) => setOpponent(e.target.value)}
+                placeholder="z. B. maia1"
+                style={inp}
+              />
+            </label>
+            <label style={lbl}>
+              Farbe
+              <select value={color} onChange={(e) => setColor(e.target.value as 'random' | 'white' | 'black')} style={inp}>
+                <option value="random">zufällig</option>
+                <option value="white">weiß</option>
+                <option value="black">schwarz</option>
+              </select>
+            </label>
+            <label style={lbl}>
+              Zeit (Minuten)
+              <input
+                type="number"
+                min={1}
+                max={60}
+                value={limitMin}
+                onChange={(e) => setLimitMin(Number(e.target.value))}
+                style={inp}
+              />
+            </label>
+            <label style={lbl}>
+              Inkrement (Sekunden)
+              <input
+                type="number"
+                min={0}
+                max={60}
+                value={increment}
+                onChange={(e) => setIncrement(Number(e.target.value))}
+                style={inp}
+              />
+            </label>
+            <label style={{ ...lbl, gridColumn: '1 / -1', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" checked={rated} onChange={(e) => setRated(e.target.checked)} />
+              <span>rated</span>
+            </label>
+            <button type="submit" disabled={busy || !opponent.trim()} style={{ ...btn, gridColumn: '1 / -1' }}>
+              {busy ? 'Sende…' : 'Challenge senden'}
+            </button>
+          </form>
+          <div style={{ marginTop: 8, color: 'var(--muted)', fontSize: 12 }}>
+            Hinweis: Gegen Bot-Konten ist nur <em>casual</em> erlaubt. Beispiel-Bots: <code>maia1</code>, <code>maia5</code>, <code>maia9</code>.
+          </div>
+        </section>
+      )}
+
+      {status && configured && (
+        <section style={card}>
           <h2 style={h2}>Aktive Spiele ({status.games.length})</h2>
           {status.games.length === 0 && <div style={{ color: 'var(--muted)' }}>Keine.</div>}
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {status.games.map((id) => (
-              <li key={id} style={{ padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+              <li
+                key={id}
+                style={{
+                  padding: '6px 0',
+                  borderBottom: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
                 <a
                   href={`https://lichess.org/${id}`}
                   target="_blank"
                   rel="noreferrer"
-                  style={{ color: 'var(--heading)' }}
+                  style={{ color: 'var(--heading)', flex: 1 }}
                 >
                   {id}
                 </a>
+                <button onClick={() => handleAbort(id)} style={btn}>Abbrechen</button>
+                <button onClick={() => handleResign(id)} style={btn}>Aufgeben</button>
               </li>
             ))}
           </ul>
@@ -154,4 +273,20 @@ const btn: React.CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 4,
   cursor: 'pointer',
+};
+
+const lbl: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 4,
+  color: 'var(--muted)',
+  fontSize: 12,
+};
+
+const inp: React.CSSProperties = {
+  padding: '6px 8px',
+  background: 'var(--bg)',
+  color: 'var(--text)',
+  border: '1px solid var(--border)',
+  borderRadius: 4,
 };
