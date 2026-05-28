@@ -24,7 +24,7 @@ const BOT_PRESETS: BotPreset[] = [
   { name: 'maia9',           description: 'Maia ~1900 (menschlich, stark)' },
   { name: 'Boris-Trapsky',   description: 'Eröffnungsexperte' },
   { name: 'leelaknightodds', description: 'Lc0 mit Springer-Vorgabe' },
-  { name: 'stockfish',       description: 'Stockfish (offizielles Konto)' },
+  { name: 'raspfish',        description: 'Stockfish auf Raspberry Pi' },
 ];
 
 function describeEvent(ev: LichessEvent): string {
