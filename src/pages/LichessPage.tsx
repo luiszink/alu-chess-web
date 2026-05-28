@@ -63,7 +63,11 @@ export default function LichessPage() {
         {!status && <div>Lade…</div>}
         {status && !configured && (
           <div>
-            <div style={{ marginBottom: 8 }}>Nicht konfiguriert.</div>
+            <div style={{ marginBottom: 8 }}>
+              {status.state === 'connecting' && 'Verbinde…'}
+              {status.state === 'failed' && 'Verbindung fehlgeschlagen.'}
+              {(status.state === 'notConfigured' || !status.state) && 'Nicht konfiguriert.'}
+            </div>
             <div style={{ color: 'var(--muted)' }}>{status.message}</div>
           </div>
         )}

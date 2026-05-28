@@ -31,6 +31,7 @@ export type LichessStatus =
     }
   | {
       configured: false;
+      state?: 'notConfigured' | 'connecting' | 'failed';
       message: string;
       policy: LichessPolicy;
     };
