@@ -349,7 +349,7 @@ export default function TournamentPage() {
                   }}>
                     Verbinden
                   </button>
-                  {t._status === 'created' && (
+                  {t.canStart && (
                     <button style={btnSuccess} onClick={() => handleStart(t.id)}>
                       Start
                     </button>

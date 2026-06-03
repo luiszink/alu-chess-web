@@ -5,6 +5,8 @@ export interface TournamentInfo {
   players: number;
   rounds: number;
   format: string;
+  createdBy?: string;
+  canStart?: boolean;
 }
 
 export interface TournamentList {

@@ -7,7 +7,7 @@ async function asJson<T>(res: Response): Promise<T> {
     let detail = '';
     try {
       const j = await res.json();
-      detail = (j && (j.error || j.message)) || '';
+      detail = (j && (j.detail || j.message || j.error)) || '';
     } catch {
       /* ignore */
     }
@@ -28,7 +28,7 @@ export const tournamentApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),
-    }).then(asJson),
+    }).then((r) => asJson<{ id?: string }>(r)),
 
   connect: (id: string): Promise<unknown> =>
     fetch(`${BASE}/connect/${encodeURIComponent(id)}`, { method: 'POST' }).then(asJson),
