@@ -150,8 +150,13 @@ export default function ChessBoard({ fen, currentPlayer, isTerminal, isAtLatest,
           id: 'main-board',
           position: fen,
           onSquareClick: ({ square }) => onSquareClick(square),
-          onPieceDrag: ({ square }) => onPieceDrag(square),
-          onPieceDrop: ({ sourceSquare, targetSquare }) => onPieceDrop(sourceSquare, targetSquare),
+          onPieceDrag: ({ square }) => {
+            if (square) onPieceDrag(square);
+          },
+          onPieceDrop: ({ sourceSquare, targetSquare }) => {
+            if (!sourceSquare || !targetSquare) return false;
+            return onPieceDrop(sourceSquare, targetSquare);
+          },
           squareStyles: customSquareStyles,
           boardStyle: { width: '100%', borderRadius: '2px' },
           darkSquareStyle: { backgroundColor: '#b58863' },

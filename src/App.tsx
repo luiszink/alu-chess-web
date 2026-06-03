@@ -7,6 +7,7 @@ import HistoryPage from './pages/HistoryPage';
 import AnalysePage from './pages/AnalysePage';
 import PerformancePage from './pages/PerformancePage';
 import LichessPage from './pages/LichessPage';
+import TournamentPage from './pages/TournamentPage';
 
 function App() {
   return (
@@ -19,8 +20,9 @@ function App() {
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/analyse" element={<AnalysePage />} />
           <Route path="/performance" element={<PerformancePage />} />
-          <Route path="/lichess" element={<LichessPage />} />
-          <Route path="/tools"   element={<Navigate to="/play" replace />} />
+          <Route path="/lichess"     element={<LichessPage />} />
+          <Route path="/tournament"  element={<TournamentPage />} />
+          <Route path="/tools"       element={<Navigate to="/play" replace />} />
         </Routes>
         <Toaster
           position="top-center"
