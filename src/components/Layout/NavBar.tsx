@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
 
 const NAV_LINKS = [
-  { to: '/',            label: 'Startseite' },
-  { to: '/play',        label: 'Spiel'      },
-  { to: '/history',     label: 'Verlauf'    },
+  { to: '/',            label: 'Startseite'  },
+  { to: '/play',        label: 'Spiel'       },
+  { to: '/history',     label: 'Verlauf'     },
   { to: '/performance', label: 'Performance' },
-  { to: '/lichess',     label: 'Lichess'    },
+  { to: '/lichess',     label: 'Lichess'     },
+  { to: '/tournament',  label: 'Tournament'  },
 ];
 
 export default function NavBar() {

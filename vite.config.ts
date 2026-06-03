@@ -15,7 +15,7 @@ export default defineConfig({
       '/api/player':     { target: 'http://localhost:8081', changeOrigin: true },
       '/api/perf':       { target: 'http://localhost:8081', changeOrigin: true },
       '/api/model':      { target: 'http://localhost:8082', changeOrigin: true },
-      '/api/tournament': { target: 'http://localhost:8084', changeOrigin: true },
+      '/api/tournament': { target: 'http://localhost:8087', changeOrigin: true },
       '/api/lichess':    { target: 'http://localhost:8085', changeOrigin: true },
     },
   },
