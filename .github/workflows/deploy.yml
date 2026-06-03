@@ -17,6 +17,11 @@ permissions:
   contents: read
   packages: write
 
+env:
+  FRONTEND_IMAGE_TAG: sha-${{ github.sha }}
+  GITOPS_REPOSITORY: luiszink/alu-chess
+  GITOPS_VALUES_FILE: deploy/helm/alu-chess/values-prod.yaml
+
 jobs:
   build:
     name: Build frontend package
@@ -78,6 +83,7 @@ jobs:
             type=ref,event=branch
             type=ref,event=tag
             type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v7
@@ -87,3 +93,35 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Checkout GitOps repository
+        if: github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.GITOPS_REPOSITORY }}
+          token: ${{ secrets.GITOPS_REPO_TOKEN }}
+          ref: main
+          path: gitops
+
+      - name: Update frontend image tag for Argo CD
+        if: github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch
+        working-directory: gitops
+        run: |
+          sed -i "/^  frontend:$/,/^  [a-z]/ s#repository: .*#repository: ${IMAGE_NAME}#" "${GITOPS_VALUES_FILE}"
+          sed -i "/^  frontend:$/,/^  [a-z]/ s/tag: .*/tag: ${FRONTEND_IMAGE_TAG}/" "${GITOPS_VALUES_FILE}"
+
+      - name: Commit GitOps update
+        if: github.ref_type == 'branch' && github.ref_name == github.event.repository.default_branch
+        working-directory: gitops
+        run: |
+          if git diff --quiet -- "${GITOPS_VALUES_FILE}"; then
+            echo "No GitOps changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${GITOPS_VALUES_FILE}"
+          git commit -m "chore(gitops): update frontend image to ${FRONTEND_IMAGE_TAG} [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
