@@ -5,6 +5,7 @@ const NAV_LINKS = [
   { to: '/play',        label: 'Spiel'       },
   { to: '/history',     label: 'Verlauf'     },
   { to: '/performance', label: 'Performance' },
+  { to: '/analytics',   label: 'Statistik'   },
   { to: '/lichess',     label: 'Lichess'     },
   { to: '/tournament',  label: 'Tournament'  },
 ];
