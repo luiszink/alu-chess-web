@@ -118,19 +118,21 @@ export const tournamentApi = {
     fetch(`${BASE}/${encodeURIComponent(id)}`).then((r) => asJson(r)),
 
   create: async (req: CreateTournamentRequest): Promise<{ id?: string }> => {
-    const token = await getAuthToken();
-    const form = new URLSearchParams();
-    form.append('name', req.name);
-    form.append('nbRounds', String(req.nbRounds));
-    form.append('clockLimit', String(req.clockLimit));
-    form.append('clockIncrement', String(req.clockIncrement));
-    form.append('format', req.format);
-    return fetch(`${BASE}/`, {
+    // The controller is the single tournament director (ensureDirector →
+    // alu-chess-director). Going through the smart `/create` route means the
+    // same identity that creates a tournament can also start it. Sending a
+    // per-browser director token here would create tournaments nobody else
+    // (and not even a later browser session) could start → "not the director".
+    return fetch(`${BASE}/create`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-      body: form,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: req.name,
+        nbRounds: req.nbRounds,
+        clockLimit: req.clockLimit,
+        clockIncrement: req.clockIncrement,
+        format: req.format,
+      }),
     }).then((r) => asJson<{ id?: string }>(r));
   },
 
@@ -152,13 +154,12 @@ export const tournamentApi = {
       method: 'POST',
     }).then(asJson),
 
-  start: async (id: string): Promise<unknown> => {
-    const token = await getAuthToken();
-    return fetch(`${BASE}/${encodeURIComponent(id)}/start`, {
+  start: async (id: string): Promise<unknown> =>
+    // Director action → controller's shared director via the smart route,
+    // matching how the tournament was created.
+    fetch(`${BASE}/start/${encodeURIComponent(id)}`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-    }).then(asJson);
-  },
+    }).then(asJson),
 
   join: async (id: string): Promise<unknown> => {
     const { token } = await getMyBotToken();
