@@ -863,8 +863,11 @@ export default function TournamentPage() {
     if (!tid) return;
     try {
       await tournamentApi.join(tid);
+      // Start the server-side bot loop so the bot actually plays its games and
+      // reports a "playing" status — joining alone leaves it idle.
+      await tournamentApi.connectBot(tid);
       setJoinedIds((prev) => new Set([...prev, tid]));
-      addLog(`Bot "${botName}" ist Tournament ${tid} beigetreten`);
+      addLog(`Bot "${botName}" ist Tournament ${tid} beigetreten und spielt jetzt`);
       loadTournaments();
     } catch (e) {
       addLog(`Fehler beim Beitreten: ${e instanceof Error ? e.message : String(e)}`, true);

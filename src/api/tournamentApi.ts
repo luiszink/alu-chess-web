@@ -121,6 +121,16 @@ export const tournamentApi = {
     }).then(asJson);
   },
 
+  /**
+   * Starts the server-side TournamentBot loop for this tournament: it joins,
+   * opens the NDJSON event stream and actually plays the games — and is the
+   * only thing that moves the bot status from "idle" to "playing".
+   */
+  connectBot: async (id: string): Promise<unknown> =>
+    fetch(`${BASE}/connect/${encodeURIComponent(id)}`, {
+      method: 'POST',
+    }).then(asJson),
+
   start: async (id: string): Promise<unknown> => {
     const token = await getAuthToken();
     return fetch(`${BASE}/${encodeURIComponent(id)}/start`, {
