@@ -3,13 +3,27 @@ import type { BotStatus, TournamentList, CreateTournamentRequest, RoundPairings,
 const BASE = '/api/tournament';
 const AUTH_BASE = '/api/auth';
 
+/**
+ * A JWT has the shape `header.payload.signature` (three base64url parts).
+ * The controller now forwards this token straight to the upstream tournament
+ * server, which rejects anything malformed with "invalid token format".
+ * Guards against stale/garbage cache values such as the literal string
+ * `"undefined"` that older code could persist into localStorage.
+ */
+function looksLikeJwt(t: string | null | undefined): t is string {
+  return typeof t === 'string' && t.split('.').length === 3 && t.length > 20;
+}
+
 // ── User token (isBot=false) – for create / start ────────────────────────────
 let cachedUserToken: string | null = null;
 
 async function getAuthToken(): Promise<string> {
-  if (cachedUserToken) return cachedUserToken;
+  if (looksLikeJwt(cachedUserToken)) return cachedUserToken;
   const stored = localStorage.getItem('tournament_auth_token');
-  if (stored) { cachedUserToken = stored; return stored; }
+  if (looksLikeJwt(stored)) { cachedUserToken = stored; return stored; }
+  // Purge any garbage (e.g. a persisted "undefined") so we re-register cleanly.
+  cachedUserToken = null;
+  localStorage.removeItem('tournament_auth_token');
 
   // Use a stable director name stored in localStorage so re-registrations
   // always use the same name (server returns the same id for the same name)
@@ -25,7 +39,8 @@ async function getAuthToken(): Promise<string> {
     body: JSON.stringify({ name: directorName, isBot: false }),
   });
   if (!res.ok) throw new Error('Failed to register');
-  const data = (await res.json()) as { token: string };
+  const data = (await res.json()) as { token?: string };
+  if (!looksLikeJwt(data.token)) throw new Error('Register did not return a valid token');
   cachedUserToken = data.token;
   localStorage.setItem('tournament_auth_token', data.token);
   return data.token;
@@ -49,14 +64,19 @@ export function setMyBotName(name: string): void {
 }
 
 export async function getMyBotToken(): Promise<{ token: string; id: string }> {
-  if (cachedBotToken && cachedBotId) return { token: cachedBotToken, id: cachedBotId };
+  if (looksLikeJwt(cachedBotToken) && cachedBotId) return { token: cachedBotToken, id: cachedBotId };
   const storedToken = localStorage.getItem('tournament_bot_token');
   const storedId    = localStorage.getItem('tournament_bot_id');
-  if (storedToken && storedId) {
+  if (looksLikeJwt(storedToken) && storedId) {
     cachedBotToken = storedToken;
     cachedBotId    = storedId;
     return { token: storedToken, id: storedId };
   }
+  // Purge any garbage (e.g. a persisted "undefined") so we re-register cleanly.
+  cachedBotToken = null;
+  cachedBotId    = null;
+  localStorage.removeItem('tournament_bot_token');
+  localStorage.removeItem('tournament_bot_id');
   const name = getMyBotName();
   const res = await fetch(`${AUTH_BASE}/register`, {
     method: 'POST',
@@ -64,7 +84,8 @@ export async function getMyBotToken(): Promise<{ token: string; id: string }> {
     body: JSON.stringify({ name, isBot: true }),
   });
   if (!res.ok) throw new Error('Failed to register bot');
-  const data = (await res.json()) as { token: string; id: string };
+  const data = (await res.json()) as { token?: string; id?: string };
+  if (!looksLikeJwt(data.token) || !data.id) throw new Error('Bot register did not return a valid token');
   cachedBotToken = data.token;
   cachedBotId    = data.id;
   localStorage.setItem('tournament_bot_token', data.token);
