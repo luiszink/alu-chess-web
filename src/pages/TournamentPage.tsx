@@ -857,17 +857,23 @@ export default function TournamentPage() {
 
   // ── Actions ─────────────────────────────────────────────────────────────────
 
-  /** Lässt deinen Bot einem Tournament beitreten (isBot=true Token) */
+  /**
+   * Connects the server-side bot to a tournament. `connectBot` runs the
+   * TournamentBot loop which BOTH joins (as the controller's `alu-chess-bot`)
+   * AND actually plays the moves.
+   *
+   * We deliberately do NOT also call `tournamentApi.join` here: that would add
+   * the frontend's `MyTeam-Bot` identity as a separate participant that nobody
+   * plays, so it loses every game on timeout (0 moves). One identity must both
+   * join and play.
+   */
   async function handleJoin(id: string) {
     const tid = id.trim();
     if (!tid) return;
     try {
-      await tournamentApi.join(tid);
-      // Start the server-side bot loop so the bot actually plays its games and
-      // reports a "playing" status — joining alone leaves it idle.
       await tournamentApi.connectBot(tid);
       setJoinedIds((prev) => new Set([...prev, tid]));
-      addLog(`Bot "${botName}" ist Tournament ${tid} beigetreten und spielt jetzt`);
+      addLog(`Bot ist Tournament ${tid} beigetreten und spielt jetzt`);
       loadTournaments();
     } catch (e) {
       addLog(`Fehler beim Beitreten: ${e instanceof Error ? e.message : String(e)}`, true);
