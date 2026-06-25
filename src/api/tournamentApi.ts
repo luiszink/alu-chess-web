@@ -17,11 +17,14 @@ function looksLikeJwt(t: string | null | undefined): t is string {
 // ── User token (isBot=false) – for create / start ────────────────────────────
 let cachedUserToken: string | null = null;
 
-async function getAuthToken(): Promise<string> {
-  if (looksLikeJwt(cachedUserToken)) return cachedUserToken;
-  const stored = localStorage.getItem('tournament_auth_token');
-  if (looksLikeJwt(stored)) { cachedUserToken = stored; return stored; }
-  // Purge any garbage (e.g. a persisted "undefined") so we re-register cleanly.
+async function getAuthToken(forceRefresh = false): Promise<string> {
+  if (!forceRefresh) {
+    if (looksLikeJwt(cachedUserToken)) return cachedUserToken;
+    const stored = localStorage.getItem('tournament_auth_token');
+    if (looksLikeJwt(stored)) { cachedUserToken = stored; return stored; }
+  }
+  // Purge any garbage (e.g. a persisted "undefined") or a stale token the server
+  // rejects with 401 ("invalid signature") so we re-register cleanly.
   cachedUserToken = null;
   localStorage.removeItem('tournament_auth_token');
 
@@ -63,16 +66,19 @@ export function setMyBotName(name: string): void {
   localStorage.removeItem('tournament_bot_id');
 }
 
-export async function getMyBotToken(): Promise<{ token: string; id: string }> {
-  if (looksLikeJwt(cachedBotToken) && cachedBotId) return { token: cachedBotToken, id: cachedBotId };
-  const storedToken = localStorage.getItem('tournament_bot_token');
-  const storedId    = localStorage.getItem('tournament_bot_id');
-  if (looksLikeJwt(storedToken) && storedId) {
-    cachedBotToken = storedToken;
-    cachedBotId    = storedId;
-    return { token: storedToken, id: storedId };
+export async function getMyBotToken(forceRefresh = false): Promise<{ token: string; id: string }> {
+  if (!forceRefresh) {
+    if (looksLikeJwt(cachedBotToken) && cachedBotId) return { token: cachedBotToken, id: cachedBotId };
+    const storedToken = localStorage.getItem('tournament_bot_token');
+    const storedId    = localStorage.getItem('tournament_bot_id');
+    if (looksLikeJwt(storedToken) && storedId) {
+      cachedBotToken = storedToken;
+      cachedBotId    = storedId;
+      return { token: storedToken, id: storedId };
+    }
   }
-  // Purge any garbage (e.g. a persisted "undefined") so we re-register cleanly.
+  // Purge any garbage (e.g. a persisted "undefined") or a stale token the server
+  // rejects with 401 ("invalid signature") so we re-register cleanly.
   cachedBotToken = null;
   cachedBotId    = null;
   localStorage.removeItem('tournament_bot_token');
@@ -107,6 +113,32 @@ async function asJson<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
+/**
+ * Issue a request that carries the bot JWT. On a 401 — e.g. the upstream server
+ * rotated its signing secret, so the cached token fails with "invalid signature"
+ * — force a re-registration and retry exactly once with the fresh token.
+ */
+async function fetchWithBotAuth(makeReq: (token: string) => Promise<Response>): Promise<Response> {
+  let { token } = await getMyBotToken();
+  let res = await makeReq(token);
+  if (res.status === 401) {
+    ({ token } = await getMyBotToken(true));
+    res = await makeReq(token);
+  }
+  return res;
+}
+
+/** Same as {@link fetchWithBotAuth} but for the user/director JWT. */
+async function fetchWithUserAuth(makeReq: (token: string) => Promise<Response>): Promise<Response> {
+  let token = await getAuthToken();
+  let res = await makeReq(token);
+  if (res.status === 401) {
+    token = await getAuthToken(true);
+    res = await makeReq(token);
+  }
+  return res;
+}
+
 export const tournamentApi = {
   status: (): Promise<BotStatus> =>
     fetch(`${BASE}/status`).then((r) => asJson<BotStatus>(r)),
@@ -137,11 +169,13 @@ export const tournamentApi = {
   },
 
   connect: async (id: string): Promise<unknown> => {
-    const { token } = await getMyBotToken();
-    return fetch(`${BASE}/${encodeURIComponent(id)}/join`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-    }).then(asJson);
+    const res = await fetchWithBotAuth((token) =>
+      fetch(`${BASE}/${encodeURIComponent(id)}/join`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      }),
+    );
+    return asJson(res);
   },
 
   /**
@@ -162,19 +196,23 @@ export const tournamentApi = {
     }).then(asJson),
 
   join: async (id: string): Promise<unknown> => {
-    const { token } = await getMyBotToken();
-    return fetch(`${BASE}/${encodeURIComponent(id)}/join`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-    }).then(asJson);
+    const res = await fetchWithBotAuth((token) =>
+      fetch(`${BASE}/${encodeURIComponent(id)}/join`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      }),
+    );
+    return asJson(res);
   },
 
   withdraw: async (id: string): Promise<unknown> => {
-    const { token } = await getMyBotToken();
-    return fetch(`${BASE}/${encodeURIComponent(id)}/withdraw`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` },
-    }).then(asJson);
+    const res = await fetchWithBotAuth((token) =>
+      fetch(`${BASE}/${encodeURIComponent(id)}/withdraw`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      }),
+    );
+    return asJson(res);
   },
 
   roundPairings: async (id: string, round: number): Promise<RoundPairings> => {
@@ -218,13 +256,13 @@ export const tournamentApi = {
     `${BASE}/${encodeURIComponent(tournamentId)}/game/${encodeURIComponent(gameId)}/stream`,
 
   /** Fetches a game stream with authentication headers */
-  getGameStream: async (tournamentId: string, gameId: string, signal?: AbortSignal): Promise<Response> => {
-    const token = await getAuthToken();
-    return fetch(`${BASE}/${encodeURIComponent(tournamentId)}/game/${encodeURIComponent(gameId)}/stream`, {
-      headers: { 'Authorization': `Bearer ${token}` },
-      signal,
-    });
-  },
+  getGameStream: async (tournamentId: string, gameId: string, signal?: AbortSignal): Promise<Response> =>
+    fetchWithUserAuth((token) =>
+      fetch(`${BASE}/${encodeURIComponent(tournamentId)}/game/${encodeURIComponent(gameId)}/stream`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        signal,
+      }),
+    ),
 
   logsUrl: (): string => `${BASE}/logs`,
 };
